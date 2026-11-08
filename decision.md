@@ -48,3 +48,31 @@
 - **Decision:** Provide Standard Protection (VPN + Usage Stats + Foreground Service monitoring) for any ordinary device, and Enhanced Protection utilizing `DevicePolicyManager` (Device Owner mode) for enforced policy locking where provisioned.
 - **Consequences:** Clearly communicates capabilities to user without making false claims about absolute uninstallation prevention on non-provisioned devices.
 
+---
+
+### Decision ID: ADR-006
+**Title:** Offline Enforcement and Boot-Completed Persistence
+- **Status:** Accepted
+- **Context:** Restrictions must not depend on an internet connection or reset upon device restart.
+- **Decision:** Persist all active policies and discovered blocklist rules in Room SQLite locally. On device startup, `BootCompletedReceiver` queries active plans and immediately launches foreground services (`SupervisionVpnService` and `UsageMonitoringService`).
+- **Consequences:** Fully autonomous enforcement without requiring cloud servers, surviving network outages and device reboots.
+
+---
+
+### Decision ID: ADR-007
+**Title:** Safeguarded Essential Applications Whitelist
+- **Status:** Accepted
+- **Context:** Self-control restrictions must never compromise critical communication, safety, or banking capabilities.
+- **Decision:** Hardcode an unmodifiable `isEssential = true` attribute for emergency dialer, phone, SMS, banking apps, and work platforms (Microsoft Teams, Outlook). Prevent user from blocking these apps even under active restriction plans.
+- **Consequences:** Prevents lockout from critical emergency services, financial tools, and enterprise communication channels.
+
+---
+
+### Decision ID: ADR-008
+**Title:** Strict Mode as Default for Unknown Domains
+- **Status:** Accepted
+- **Context:** Users frequently bypass standard DNS filters by visiting newly generated adult mirror domains or unlisted proxies.
+- **Decision:** Default to Strict Mode where unclassified domains are temporarily blocked while dynamic classification takes place.
+- **Consequences:** Closes the unknown-domain loophole while allowing legitimate domains to be permanently cached as safe once verified.
+
+

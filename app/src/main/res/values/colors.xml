@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="supervision_primary">#FF1B5E20</color>
+    <color name="supervision_on_primary">#FFFFFFFF</color>
+    <color name="supervision_primary_container">#FFA5D6A7</color>
+    <color name="supervision_on_primary_container">#FF0D3311</color>
+    <color name="supervision_secondary">#FF37474F</color>
+    <color name="supervision_on_secondary">#FFFFFFFF</color>
+    <color name="supervision_secondary_container">#FFCFD8DC</color>
+    <color name="supervision_on_secondary_container">#FF1C2B31</color>
+    <color name="supervision_tertiary">#FF4E342E</color>
+    <color name="supervision_error">#FFB00020</color>
+    <color name="supervision_on_error">#FFFFFFFF</color>
+    <color name="supervision_background">#FFFAFAFA</color>
+    <color name="supervision_on_background">#FF1C1B1F</color>
+    <color name="supervision_surface">#FFFFFFFF</color>
+    <color name="supervision_on_surface">#FF1C1B1F</color>
+    <color name="supervision_surface_variant">#FFF5F5F5</color>
+    
+    <!-- Status Colors -->
+    <color name="status_active">#FF2E7D32</color>
+    <color name="status_inactive">#FFD32F2F</color>
+    <color name="status_warning">#FFF57F17</color>
+    <color name="status_partial">#FFFF8F00</color>
+    
+    <!-- Category Colors -->
+    <color name="category_pornography">#FFB71C1C</color>
+    <color name="category_social_media">#FF1565C0</color>
+    <color name="category_apps">#FF6A1B9A</color>
+    <color name="category_safe">#FF2E7D32</color>
+</resources>
+

@@ -1,0 +1,102 @@
+<resources>
+    <string name="app_name">Supervision</string>
+    
+    <!-- Onboarding -->
+    <string name="onboarding_welcome_title">Take Control of Your Digital Life</string>
+    <string name="onboarding_welcome_subtitle">Supervision helps you build healthier digital habits by blocking distracting content and managing screen time.</string>
+    <string name="onboarding_permissions_title">Required Permissions</string>
+    <string name="onboarding_permissions_subtitle">Supervision needs a few permissions to protect you effectively.</string>
+    <string name="onboarding_vpn_title">VPN Protection</string>
+    <string name="onboarding_vpn_subtitle">Supervision uses a local VPN to filter harmful websites. No data leaves your device.</string>
+    <string name="onboarding_usage_title">Usage Monitoring</string>
+    <string name="onboarding_usage_subtitle">Allow Supervision to monitor app usage to enforce daily time limits.</string>
+    <string name="onboarding_setup_complete">Setup Complete</string>
+    <string name="onboarding_get_started">Get Started</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_grant_permission">Grant Permission</string>
+    
+    <!-- Dashboard -->
+    <string name="dashboard_title">Dashboard</string>
+    <string name="dashboard_protection_active">Protection Active</string>
+    <string name="dashboard_protection_inactive">Protection Inactive</string>
+    <string name="dashboard_protection_partial">Partial Protection</string>
+    <string name="dashboard_websites_blocked">Websites Blocked</string>
+    <string name="dashboard_domains_discovered">Domains Discovered</string>
+    <string name="dashboard_apps_restricted">Apps Restricted</string>
+    <string name="dashboard_time_remaining">Time Remaining</string>
+    <string name="dashboard_today_usage">Today\'s Usage</string>
+    
+    <!-- Restriction Screen -->
+    <string name="restriction_title">Access Restricted</string>
+    <string name="restriction_message">You chose to protect your time and attention. This content is currently restricted under your Supervision plan.</string>
+    <string name="restriction_category">Restriction Category</string>
+    <string name="restriction_time_remaining">Protection Time Remaining</string>
+    
+    <!-- Website Filtering -->
+    <string name="websites_title">Website Restrictions</string>
+    <string name="websites_add_domain">Add Domain</string>
+    <string name="websites_blocklist">Blocked Domains</string>
+    <string name="websites_allowlist">Allowed Domains</string>
+    <string name="websites_dynamic_detection">Dynamic Detection</string>
+    
+    <!-- App Restrictions -->
+    <string name="apps_title">App Restrictions</string>
+    <string name="apps_always_allowed">Always Allowed</string>
+    <string name="apps_time_limited">Time Limited</string>
+    <string name="apps_blocked">Completely Blocked</string>
+    
+    <!-- Social Media -->
+    <string name="social_title">Social Media</string>
+    <string name="social_instagram">Instagram</string>
+    <string name="social_twitter">X / Twitter</string>
+    <string name="social_reddit">Reddit</string>
+    <string name="social_facebook">Facebook</string>
+    <string name="social_tiktok">TikTok</string>
+    <string name="social_youtube_shorts">YouTube Shorts</string>
+    
+    <!-- Schedule -->
+    <string name="schedule_title">Schedule</string>
+    <string name="schedule_start_date">Start Date</string>
+    <string name="schedule_end_date">End Date</string>
+    <string name="schedule_active_days">Active Days</string>
+    <string name="schedule_daily_reset">Daily Reset Time</string>
+    
+    <!-- Protection Plan -->
+    <string name="plan_title">Protection Plan</string>
+    <string name="plan_activate">Activate Protection</string>
+    <string name="plan_deactivate">Deactivate Protection</string>
+    <string name="plan_duration">Plan Duration</string>
+    
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_protection_mode">Protection Mode</string>
+    <string name="settings_standard">Standard Protection</string>
+    <string name="settings_enhanced">Enhanced Protection</string>
+    <string name="settings_unknown_domain_policy">Unknown Domain Policy</string>
+    <string name="settings_strict_mode">Strict Mode</string>
+    <string name="settings_balanced_mode">Balanced Mode</string>
+    
+    <!-- Notifications -->
+    <string name="notification_channel_vpn">VPN Protection</string>
+    <string name="notification_channel_monitoring">Usage Monitoring</string>
+    <string name="notification_channel_alerts">Protection Alerts</string>
+    <string name="notification_vpn_active">Website filtering is active</string>
+    <string name="notification_monitoring_active">Monitoring app usage</string>
+    <string name="notification_time_warning">%1$s: %2$d minutes remaining</string>
+    <string name="notification_time_expired">%1$s: Daily limit reached</string>
+    <string name="notification_tamper_detected">Tampering detected — protection may be compromised</string>
+    
+    <!-- Common -->
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="confirm">Confirm</string>
+    <string name="delete">Delete</string>
+    <string name="edit">Edit</string>
+    <string name="enabled">Enabled</string>
+    <string name="disabled">Disabled</string>
+    <string name="minutes">minutes</string>
+    <string name="hours">hours</string>
+    <string name="days">days</string>
+</resources>
+

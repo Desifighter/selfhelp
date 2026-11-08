@@ -117,3 +117,4 @@ class BlocklistProvider @Inject constructor(
 
     fun getAllDomains(): Set<String> = blockedDomains.keys.toSet()
 }
+

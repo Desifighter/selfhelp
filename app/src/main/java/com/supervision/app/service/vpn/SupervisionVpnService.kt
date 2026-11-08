@@ -360,3 +360,4 @@ class SupervisionVpnService : VpnService() {
         super.onRevoke()
     }
 }
+

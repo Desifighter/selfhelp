@@ -59,3 +59,4 @@ class AppRestrictionModelTest {
         assertFalse(app.isLimitReached)
     }
 }
+

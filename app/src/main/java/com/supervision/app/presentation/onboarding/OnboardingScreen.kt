@@ -551,3 +551,4 @@ private fun OnboardingBottomBar(
         }
     }
 }
+

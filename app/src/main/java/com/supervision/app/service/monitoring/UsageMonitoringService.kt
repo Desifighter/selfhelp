@@ -39,6 +39,7 @@ class UsageMonitoringService : Service() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var isRunning = false
+    private val warnedPackages = mutableSetOf<String>()
 
     companion object {
         const val ACTION_START = "com.supervision.app.MONITORING_START"
@@ -118,9 +119,14 @@ class UsageMonitoringService : Service() {
                     RestrictionType.TIME_LIMITED -> {
                         val usedMinutes = usageRepository.getUsageForToday(lastForegroundPackage)
                         val limit = restriction.dailyLimitMinutes ?: Int.MAX_VALUE
-                        if (usedMinutes >= limit) {
+                        val remaining = limit - usedMinutes
+
+                        if (remaining <= 0) {
                             Timber.i("Time limit reached for: $lastForegroundPackage ($usedMinutes/$limit min)")
                             appBlocker.blockApp(this@UsageMonitoringService, lastForegroundPackage)
+                        } else if (remaining <= 5 && !warnedPackages.contains(lastForegroundPackage)) {
+                            warnedPackages.add(lastForegroundPackage)
+                            showTimeWarningNotification(restriction.appName, remaining)
                         }
                     }
                     RestrictionType.ALWAYS_ALLOWED -> {}
@@ -186,8 +192,21 @@ class UsageMonitoringService : Service() {
             .build()
     }
 
+    private fun showTimeWarningNotification(appName: String, remainingMinutes: Int) {
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+        val notification = NotificationCompat.Builder(this, SupervisionApp.CHANNEL_ALERTS)
+            .setContentTitle("Daily Limit Warning")
+            .setContentText("$appName: $remainingMinutes minutes remaining today")
+            .setSmallIcon(R.drawable.ic_shield)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .build()
+        notificationManager.notify(appName.hashCode(), notification)
+    }
+
     override fun onDestroy() {
         stopMonitoring()
         super.onDestroy()
     }
 }
+

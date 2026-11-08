@@ -75,4 +75,14 @@
 - **Decision:** Default to Strict Mode where unclassified domains are temporarily blocked while dynamic classification takes place.
 - **Consequences:** Closes the unknown-domain loophole while allowing legitimate domains to be permanently cached as safe once verified.
 
+---
+
+### Decision ID: ADR-009
+**Title:** Dual-Clock Monotonic Anti-Tamper Verification
+- **Status:** Accepted
+- **Context:** Users often manipulate system Date & Time to fast-forward past daily restriction limits or roll back time to revive expired allowances.
+- **Decision:** Compare `System.currentTimeMillis()` against hardware monotonic uptime `SystemClock.elapsedRealtime()`. If wall-clock time regresses backwards (>60s) or jumps forward without corresponding hardware elapsed uptime, trigger a `TAMPER_DETECTED` event with `HIGH` severity and preserve the active restriction state.
+- **Consequences:** Neutralizes system clock bypasses while ensuring accurate usage tracking across device sleep and wake states.
+
+
 

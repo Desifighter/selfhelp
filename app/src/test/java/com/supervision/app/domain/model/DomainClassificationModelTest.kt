@@ -66,3 +66,4 @@ class DomainClassificationModelTest {
         assertTrue(pastExpiresAt.needsReclassification)
     }
 }
+

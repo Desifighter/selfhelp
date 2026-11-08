@@ -55,3 +55,4 @@ class AppRestrictionsViewModel @Inject constructor(
         }
     }
 }
+

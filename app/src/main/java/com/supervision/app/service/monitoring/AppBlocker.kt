@@ -20,3 +20,4 @@ class AppBlocker @Inject constructor() {
         context.startActivity(intent)
     }
 }
+

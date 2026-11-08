@@ -21,3 +21,4 @@ class SupervisionDeviceAdminReceiver : DeviceAdminReceiver() {
         return "Disabling device admin will reduce protection. Your active restrictions will continue but enhanced protection features will be unavailable."
     }
 }
+

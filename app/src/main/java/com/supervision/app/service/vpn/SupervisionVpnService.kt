@@ -81,7 +81,7 @@ class SupervisionVpnService : VpnService() {
             vpnInterface = Builder()
                 .setSession("Supervision")
                 .addAddress(VPN_ADDRESS, 32)
-                .addRoute(VPN_ROUTE, 0)
+                .addRoute(DNS_SERVER, 32)
                 .addDnsServer(DNS_SERVER)
                 .setMtu(VPN_MTU)
                 .setBlocking(true)
@@ -94,7 +94,7 @@ class SupervisionVpnService : VpnService() {
             }
 
             isRunning = true
-            Timber.i("VPN interface established")
+            Timber.i("VPN interface established (DNS-only filtering route)")
 
             serviceScope.launch {
                 handleVpnTraffic()
@@ -120,13 +120,19 @@ class SupervisionVpnService : VpnService() {
                 val packet = buffer.copyOf(length)
 
                 if (isDnsPacket(packet)) {
-                    val response = processDnsPacket(packet)
-                    if (response != null) {
-                        outputStream.write(response)
-                        outputStream.flush()
+                    serviceScope.launch(Dispatchers.IO) {
+                        try {
+                            val response = processDnsPacket(packet)
+                            if (response != null) {
+                                synchronized(outputStream) {
+                                    outputStream.write(response)
+                                    outputStream.flush()
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Timber.e(e, "Error processing DNS packet")
+                        }
                     }
-                } else {
-                    forwardPacket(packet, outputStream)
                 }
             }
         } catch (e: Exception) {

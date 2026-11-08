@@ -194,6 +194,37 @@ class UsageMonitoringService : Service() {
                 }
             }
         }
+
+        // Also scan running processes to catch Freeform floating windows and multi-window mode
+        val am = getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
+        am?.runningAppProcesses?.forEach { proc ->
+            if (proc.pkgList != null && proc.importance <= android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE) {
+                for (pkg in proc.pkgList) {
+                    if (pkg != packageName) {
+                        val restriction = appRestrictionRepository.getRestriction(pkg)
+                        if (restriction != null) {
+                            val usedMinutes = ((foregroundDurations[pkg] ?: 0L) / 60000L).toInt()
+                            when (restriction.restrictionType) {
+                                RestrictionType.COMPLETELY_BLOCKED -> {
+                                    if (!restriction.isEssential) {
+                                        Timber.i("Visible process (Freeform window) detected for blocked app: $pkg")
+                                        appBlocker.blockApp(this@UsageMonitoringService, pkg)
+                                    }
+                                }
+                                RestrictionType.TIME_LIMITED -> {
+                                    val limit = restriction.dailyLimitMinutes ?: Int.MAX_VALUE
+                                    if (usedMinutes >= limit) {
+                                        Timber.i("Visible process (Freeform window) limit reached for: $pkg ($usedMinutes/$limit min)")
+                                        appBlocker.blockApp(this@UsageMonitoringService, pkg)
+                                    }
+                                }
+                                RestrictionType.ALWAYS_ALLOWED -> {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private fun stopMonitoring() {

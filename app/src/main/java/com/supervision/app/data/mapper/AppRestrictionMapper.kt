@@ -23,3 +23,4 @@ fun AppRestriction.toEntity(): AppRestrictionEntity {
         isEssential = isEssential
     )
 }
+

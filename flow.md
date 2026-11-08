@@ -2,10 +2,20 @@
 
 ## 1. Project Status
 - **Current Phase:** A1 — Android Project Setup and Foundational Architecture
-- **Current Task:** Git repository initialization and GitHub remote integration (`Desifighter/selfhelp`)
-- **Overall Completion Status:** Foundational Architecture Established (~15%)
-- **Last Completed Milestone:** Android Gradle build system, Room database schema, Domain entities & models, Repository layer, VPN & Monitoring service skeleton
+- **Current Task:** GitHub remote synchronization (`Desifighter/selfhelp`)
+- **Overall Completion Status:** Foundational Architecture Established (~18%)
+- **Last Completed Milestone:** Android Gradle build system, Room database schema, Domain entities & models, Repository layer, VPN & Monitoring service skeleton, Physical Device Verified
 - **Active Blockers:** GitHub authentication credentials for target repository `Desifighter/selfhelp` (switching from `Madhav-025`).
+
+---
+
+## 2. Connected Device Specifications (Verified via ADB)
+- **Device Model:** Motorola Moto G85 5G (`malmo_g` / `malmo`)
+- **Serial Number:** `ZA222LG2HJ`
+- **Android OS Version:** Android 16
+- **API Level:** 36 (targetSdk matched)
+- **Build Number:** `W1UOS36H.35-39-8`
+- **ADB Status:** Authorized & Connected (`tcp:5037`)
 
 ---
 
@@ -91,3 +101,4 @@ graph TD
     Boot[BootCompletedReceiver] --> VPN
     Boot --> Monitoring
 ```
+

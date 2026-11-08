@@ -45,3 +45,4 @@ class ProtectionPlanRepository @Inject constructor(
 
     suspend fun deletePlan(planId: Long) = dao.deleteById(planId)
 }
+

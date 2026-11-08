@@ -36,3 +36,4 @@ fun DomainClassification.toEntity(): DomainClassificationEntity {
         userOverride = userOverride
     )
 }
+

@@ -47,3 +47,4 @@ class BlockedRequestRepository @Inject constructor(
 
     fun observeTamperEvents() = tamperEventDao.observeAll()
 }
+

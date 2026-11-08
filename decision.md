@@ -47,3 +47,4 @@
 - **Context:** Tamper protection and uninstall resistance without violating Android security guidelines.
 - **Decision:** Provide Standard Protection (VPN + Usage Stats + Foreground Service monitoring) for any ordinary device, and Enhanced Protection utilizing `DevicePolicyManager` (Device Owner mode) for enforced policy locking where provisioned.
 - **Consequences:** Clearly communicates capabilities to user without making false claims about absolute uninstallation prevention on non-provisioned devices.
+

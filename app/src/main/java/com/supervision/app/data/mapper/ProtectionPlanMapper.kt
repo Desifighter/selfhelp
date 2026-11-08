@@ -39,3 +39,4 @@ fun ProtectionPlan.toEntity(): ProtectionPlanEntity {
         updatedAt = updatedAt.toEpochMilli()
     )
 }
+

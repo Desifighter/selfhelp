@@ -93,3 +93,4 @@ class DnsInterceptorSocialMediaTest {
         assertTrue("Reddit media must be blocked", decision.blocked)
     }
 }
+

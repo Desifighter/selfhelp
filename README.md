@@ -94,3 +94,4 @@ The application allows users to independently install, configure, activate, and 
 ## Project Documentation
 - [`flow.md`](flow.md) — Real-time development execution state, milestones, and hardware status.
 - [`decision.md`](decision.md) — Architecture Decision Register (ADR-001 through ADR-009).
+

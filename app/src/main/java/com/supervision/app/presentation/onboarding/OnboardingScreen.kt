@@ -52,6 +52,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import com.supervision.app.domain.model.ProtectionMode
 import com.supervision.app.domain.model.UnknownDomainPolicy
 
@@ -69,6 +71,10 @@ fun OnboardingScreen(
         if (result.resultCode == Activity.RESULT_OK) {
             viewModel.checkPermissions()
         }
+    }
+
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.checkPermissions()
     }
 
     LaunchedEffect(Unit) {

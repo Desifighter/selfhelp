@@ -15,6 +15,7 @@ import com.supervision.app.domain.model.RestrictionType
 import com.supervision.app.domain.model.ServiceHealth
 import com.supervision.app.domain.model.UsageRecord
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -35,6 +36,13 @@ data class DashboardUiState(
     val recentBlockedRequests: List<String> = emptyList()
 )
 
+private data class DashboardCounts(
+    val blockedCount: Int,
+    val autoCount: Int,
+    val restrictedCount: Int,
+    val tamperCount: Int
+)
+
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val protectionPlanRepository: ProtectionPlanRepository,
@@ -44,14 +52,20 @@ class DashboardViewModel @Inject constructor(
     private val blockedRequestRepository: BlockedRequestRepository
 ) : ViewModel() {
 
-    val uiState: StateFlow<DashboardUiState> = combine(
-        protectionPlanRepository.observeActivePlan(),
+    private val countsFlow: Flow<DashboardCounts> = combine(
         domainClassificationRepository.observeBlockedCount(),
         domainClassificationRepository.observeAutoBlockedCount(),
         appRestrictionRepository.observeRestrictedCount(),
-        usageRepository.observeTodayUsage(),
         blockedRequestRepository.observeUnresolvedTamperCount()
-    ) { activePlan, blockedCount, autoCount, restrictedCount, todayUsage, tamperCount ->
+    ) { blocked, auto, restricted, tamper ->
+        DashboardCounts(blocked, auto, restricted, tamper)
+    }
+
+    val uiState: StateFlow<DashboardUiState> = combine(
+        protectionPlanRepository.observeActivePlan(),
+        usageRepository.observeTodayUsage(),
+        countsFlow
+    ) { activePlan, todayUsage, counts ->
         val instagramUsage = todayUsage.find { it.packageName == "com.instagram.android" }
         val instagramRemaining = (30 - (instagramUsage?.totalForegroundMinutes ?: 0)).coerceAtLeast(0)
         val totalMinutes = todayUsage.sumOf { it.totalForegroundMinutes }
@@ -63,20 +77,20 @@ class DashboardViewModel @Inject constructor(
             protectionMode = activePlan?.protectionMode ?: com.supervision.app.domain.model.ProtectionMode.STANDARD,
             vpnHealth = if (activePlan != null) ServiceHealth.HEALTHY else ServiceHealth.UNKNOWN,
             monitoringHealth = if (activePlan != null) ServiceHealth.HEALTHY else ServiceHealth.UNKNOWN,
-            blockedDomainCount = blockedCount,
-            discoveredDomainCount = autoCount,
-            restrictedAppCount = restrictedCount,
+            blockedDomainCount = counts.blockedCount,
+            discoveredDomainCount = counts.autoCount,
+            restrictedAppCount = counts.restrictedCount,
             activePlanName = activePlan?.name,
-            tamperEvents = tamperCount
+            tamperEvents = counts.tamperCount
         )
 
         DashboardUiState(
             protectionStatus = status,
             activePlan = activePlan,
             instagramRemainingMinutes = instagramRemaining,
-            totalBlockedCount = blockedCount,
-            autoDiscoveredCount = autoCount,
-            restrictedAppsCount = restrictedCount,
+            totalBlockedCount = counts.blockedCount,
+            autoDiscoveredCount = counts.autoCount,
+            restrictedAppsCount = counts.restrictedCount,
             todayUsageList = todayUsage,
             totalUsageMinutesToday = totalMinutes
         )

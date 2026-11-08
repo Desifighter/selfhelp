@@ -3,17 +3,11 @@ package com.supervision.app
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import androidx.hilt.work.HiltWorkerFactory
-import androidx.work.Configuration
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
-import javax.inject.Inject
 
 @HiltAndroidApp
-class SupervisionApp : Application(), Configuration.Provider {
-
-    @Inject
-    lateinit var workerFactory: HiltWorkerFactory
+class SupervisionApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
@@ -58,11 +52,6 @@ class SupervisionApp : Application(), Configuration.Provider {
 
         manager.createNotificationChannels(listOf(vpnChannel, monitoringChannel, alertsChannel))
     }
-
-    override val workManagerConfiguration: Configuration
-        get() = Configuration.Builder()
-            .setWorkerFactory(workerFactory)
-            .build()
 
     companion object {
         const val CHANNEL_VPN = "supervision_vpn"

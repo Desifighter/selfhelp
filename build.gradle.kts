@@ -7,3 +7,10 @@ plugins {
     alias(libs.plugins.hilt.android) apply false
     alias(libs.plugins.ksp) apply false
 }
+
+val externalBuildBase = File(System.getProperty("user.home"), "gradle-builds/Self-help")
+
+allprojects {
+    layout.buildDirectory.set(File(externalBuildBase, if (project == rootProject) "root" else project.name))
+}
+

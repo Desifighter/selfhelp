@@ -25,7 +25,7 @@ import com.supervision.app.data.local.entity.UsageRecordEntity
         BlockedRequestEntity::class
     ],
     version = 1,
-    exportSchema = true
+    exportSchema = false
 )
 abstract class SupervisionDatabase : RoomDatabase() {
     abstract fun domainClassificationDao(): DomainClassificationDao

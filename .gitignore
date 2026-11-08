@@ -18,3 +18,8 @@ local.properties
 *.log
 /tools/
 tools/
+.kotlin/
+*.png
+app/build/
+build/
+

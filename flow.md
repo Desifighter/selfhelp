@@ -92,11 +92,47 @@
 
 ---
 
-## 4. Next Actions
-1. Configure Git credentials for `Desifighter` account and push initial architecture to `https://github.com/Desifighter/selfhelp`.
-2. Connect ADB to Motorola Moto G85 for on-device testing and hardware capability verification.
-3. Complete UI Layer in Jetpack Compose (Dashboard, Onboarding wizard, Restriction overlay, Settings).
-4. Implement dynamic external classification gateway and test DNS packet interception.
+## 4. Testing & Verification Status
+
+### Unit Test Execution
+- **Command:** `gradlew testDebugUnitTest`
+- **Result:** `BUILD SUCCESSFUL` (1m 23s)
+- **Suites Executed & Passed (0 Failures, 0 Errors):**
+  1. `HeuristicDomainClassifierTest` (Adult TLDs, keyword detection, safe overrides protection)
+  2. `AppRestrictionModelTest` (Daily limits, time exhaustion, essential communication apps)
+  3. `DomainClassificationModelTest` (Category blocking, expiration)
+  4. `DnsInterceptorSocialMediaTest` (Instagram web limits, Twitter platform block, Reddit media)
+
+### APK Assembly & Build Verification
+- **Command:** `gradlew assembleDebug`
+- **Output Artifact:** `C:\Users\madha\gradle-builds\Self-help\app\outputs\apk\debug\app-debug.apk` (66.5 MB)
+- **Result:** `BUILD SUCCESSFUL` (34s)
+- **Key Architecture Fix:** Redirected Gradle `layout.buildDirectory` to `C:\Users\madha\gradle-builds\Self-help` to resolve Windows OneDrive cloud sync file locks and NTFS reparse point snapshotting issues.
+- **Android 16 Compatibility:** Implemented `FOREGROUND_SERVICE_TYPE_SPECIAL_USE` for both `SupervisionVpnService` and `UsageMonitoringService` to comply with strict Android 14/15/16 foreground service type enforcement.
+
+### Physical Hardware Verification (Motorola Moto G85 5G)
+- **Device:** `moto g85 5G` (`malmo_g`, Serial `ZA222LG2HJ`)
+- **OS:** Android 16 (API 36, Build `W1UOS36H.35-39-8`)
+- **Status:** Installed via ADB (`Performing Streamed Install -> Success`)
+- **Process:** PID 16172 (`com.supervision.app.debug`)
+- **Screens Verified on Device Hardware:**
+  1. **Onboarding Screen (Step 0):** Welcome header and value proposition.
+  2. **Permissions Wizard (Step 1):** Real-time permission checking (`VpnService.prepare` and `PACKAGE_USAGE_STATS`). Verified auto-detection and green status checkmarks when granted.
+  3. **Protection Mode Selection (Step 2):** Standard vs. Enhanced mode toggle.
+  4. **Unknown Domain Policy (Step 3):** Strict Mode vs. Balanced Mode selection.
+  5. **Duration Selection (Step 4):** 7/14/30/90 days commitment configuration.
+  6. **Dashboard Screen:** Active 30-Day Plan badge, live daily screen time aggregation via Android `UsageStatsManager` (correctly tracked 50 min of Instagram usage today), Instagram limit remaining indicator (0 min left in red), and 4-tab bottom navigation (`Dashboard`, `Websites`, `Apps`, `Settings`).
+  7. **Websites Screen:** Blocked vs. Auto-discovered tabs with domain entry action.
+  8. **Apps Screen:** Application restriction list with protected essential communication apps (Teams, Outlook, Phone, Messages, Emergency).
+  9. **Settings Screen:** Watchdogs status (VPN revocation, foreground monitoring, system restart auto-start, strict unknown domain enforcement) and Device Owner provisioning guidance.
+
+---
+
+## 5. Next Actions
+1. Sync all verified code and build updates to GitHub (`https://github.com/Desifighter/selfhelp`).
+2. Implement native TUN packet parser optimizations for high-throughput DNS UDP inspection.
+3. Test physical website blocking in Chrome on the device (e.g. attempting to resolve blocked domains through the local VPN interface).
+4. Verify full-screen `RestrictionActivity` overlay auto-launch when opening Instagram when daily limit is exhausted.
 
 ---
 

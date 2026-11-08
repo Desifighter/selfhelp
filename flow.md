@@ -121,18 +121,21 @@
   3. **Protection Mode Selection (Step 2):** Standard vs. Enhanced mode toggle.
   4. **Unknown Domain Policy (Step 3):** Strict Mode vs. Balanced Mode selection.
   5. **Duration Selection (Step 4):** 7/14/30/90 days commitment configuration.
-  6. **Dashboard Screen:** Active 30-Day Plan badge, live daily screen time aggregation via Android `UsageStatsManager` (correctly tracked 50 min of Instagram usage today), Instagram limit remaining indicator (0 min left in red), and 4-tab bottom navigation (`Dashboard`, `Websites`, `Apps`, `Settings`).
+  6. **Dashboard Screen:** Active 30-Day Plan badge, accurate event-driven same-day screen time aggregation via Android `UsageStatsManager.queryEvents` from midnight to now (accurately measured 152 min of Instagram usage across all sessions today), Instagram limit remaining indicator (0 min left in red), and 4-tab bottom navigation (`Dashboard`, `Websites`, `Apps`, `Settings`).
   7. **Websites Screen:** Blocked vs. Auto-discovered tabs with domain entry action.
-  8. **Apps Screen:** Application restriction list with protected essential communication apps (Teams, Outlook, Phone, Messages, Emergency).
+  8. **Apps Screen:** Application restriction list with 4 restricted distracting platforms (Instagram, Twitter/X, Reddit, TikTok) and protected essential communication apps (Teams, Outlook, Phone, Messages, Emergency).
   9. **Settings Screen:** Watchdogs status (VPN revocation, foreground monitoring, system restart auto-start, strict unknown domain enforcement) and Device Owner provisioning guidance.
+  10. **Instagram Blocking Enforcement:**
+      - Successfully verified live interception on Moto G85: Attempting to launch Instagram immediately triggers the 1-second monitoring watchdog.
+      - `AppBlocker` instantly kicks the user to HOME and displays the full-screen dark `RestrictionActivity` overlay ("Access Restricted: com.instagram.android - Social Media / Screen Time Limit").
+      - Tapping "Return to Safe Screen" or pressing back safely returns to the device home launcher without exposing Instagram.
 
 ---
 
 ## 5. Next Actions
-1. Sync all verified code and build updates to GitHub (`https://github.com/Desifighter/selfhelp`).
-2. Implement native TUN packet parser optimizations for high-throughput DNS UDP inspection.
-3. Test physical website blocking in Chrome on the device (e.g. attempting to resolve blocked domains through the local VPN interface).
-4. Verify full-screen `RestrictionActivity` overlay auto-launch when opening Instagram when daily limit is exhausted.
+1. Sync verified Instagram blocking and precise usage fixes to GitHub (`https://github.com/Desifighter/selfhelp`).
+2. Test physical adult website blocking in Chrome on the device via `SupervisionVpnService`.
+3. Implement native DNS UDP packet capture benchmarks and memory optimization.
 
 ---
 

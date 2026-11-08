@@ -1,7 +1,9 @@
 package com.supervision.app.presentation.restriction
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -52,6 +54,12 @@ class RestrictionActivity : ComponentActivity() {
         val restrictionType = intent.getStringExtra(EXTRA_RESTRICTION_TYPE) ?: "RESTRICTED"
         val category = intent.getStringExtra(EXTRA_CATEGORY) ?: "Prohibited Content"
 
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                navigateToHome()
+            }
+        })
+
         setContent {
             SupervisionTheme {
                 RestrictionScreen(
@@ -59,11 +67,20 @@ class RestrictionActivity : ComponentActivity() {
                     restrictionType = restrictionType,
                     category = category,
                     onDismiss = {
-                        finish()
+                        navigateToHome()
                     }
                 )
             }
         }
+    }
+
+    private fun navigateToHome() {
+        val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_HOME)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        startActivity(homeIntent)
+        finish()
     }
 }
 

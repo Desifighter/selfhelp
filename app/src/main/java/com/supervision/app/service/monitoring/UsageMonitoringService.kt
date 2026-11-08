@@ -45,7 +45,7 @@ class UsageMonitoringService : Service() {
         const val ACTION_START = "com.supervision.app.MONITORING_START"
         const val ACTION_STOP = "com.supervision.app.MONITORING_STOP"
         private const val NOTIFICATION_ID = 2
-        private const val CHECK_INTERVAL_MS = 5000L
+        private const val CHECK_INTERVAL_MS = 1000L
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -90,10 +90,15 @@ class UsageMonitoringService : Service() {
             return
         }
 
+        try {
+            appRestrictionRepository.initializeEssentialApps()
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to initialize default apps in monitoring loop")
+        }
+
         while (isRunning) {
             try {
-                checkCurrentForegroundApp(usageStatsManager)
-                updateUsageStats(usageStatsManager)
+                processUsageAndEnforce(usageStatsManager)
             } catch (e: Exception) {
                 Timber.e(e, "Error in monitoring loop")
             }
@@ -101,76 +106,92 @@ class UsageMonitoringService : Service() {
         }
     }
 
-    private suspend fun checkCurrentForegroundApp(usageStatsManager: UsageStatsManager) {
-        val currentTime = System.currentTimeMillis()
-        val events = usageStatsManager.queryEvents(currentTime - 10000, currentTime)
+    private suspend fun processUsageAndEnforce(usageStatsManager: UsageStatsManager) {
+        val today = LocalDate.now()
+        val startOfDay = today.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val now = System.currentTimeMillis()
+
+        val events = usageStatsManager.queryEvents(startOfDay, now)
         val event = UsageEvents.Event()
-        var lastForegroundPackage: String? = null
+
+        val foregroundDurations = mutableMapOf<String, Long>()
+        val lastResumeTimes = mutableMapOf<String, Long>()
+        var activeForegroundApp: String? = null
 
         while (events.hasNextEvent()) {
             events.getNextEvent(event)
-            if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED) {
-                lastForegroundPackage = event.packageName
+            val pkg = event.packageName ?: continue
+
+            when (event.eventType) {
+                UsageEvents.Event.ACTIVITY_RESUMED -> {
+                    lastResumeTimes[pkg] = event.timeStamp
+                    activeForegroundApp = pkg
+                }
+                UsageEvents.Event.ACTIVITY_PAUSED, UsageEvents.Event.ACTIVITY_STOPPED -> {
+                    val resumeTime = lastResumeTimes.remove(pkg)
+                    if (resumeTime != null && event.timeStamp > resumeTime) {
+                        val duration = event.timeStamp - resumeTime
+                        foregroundDurations[pkg] = (foregroundDurations[pkg] ?: 0L) + duration
+                    }
+                    if (activeForegroundApp == pkg) {
+                        activeForegroundApp = null
+                    }
+                }
             }
         }
 
-        if (lastForegroundPackage != null && lastForegroundPackage != packageName) {
-            val restriction = appRestrictionRepository.getRestriction(lastForegroundPackage)
+        // Include duration for app actively running in foreground right now
+        for ((pkg, resumeTime) in lastResumeTimes) {
+            if (now > resumeTime) {
+                val duration = now - resumeTime
+                foregroundDurations[pkg] = (foregroundDurations[pkg] ?: 0L) + duration
+                activeForegroundApp = pkg
+            }
+        }
+
+        // Persist exact same-day usage metrics
+        val pm = packageManager
+        for ((pkg, durationMs) in foregroundDurations) {
+            val minutes = (durationMs / 60000L).toInt()
+            val appName = try {
+                pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
+            } catch (_: Exception) {
+                pkg
+            }
+            usageRepository.recordUsage(
+                packageName = pkg,
+                appName = appName,
+                minutes = minutes,
+                date = today
+            )
+        }
+
+        // Enforce restriction on currently foreground application
+        if (activeForegroundApp != null && activeForegroundApp != packageName) {
+            val restriction = appRestrictionRepository.getRestriction(activeForegroundApp)
             if (restriction != null) {
+                val usedMinutes = ((foregroundDurations[activeForegroundApp] ?: 0L) / 60000L).toInt()
                 when (restriction.restrictionType) {
                     RestrictionType.COMPLETELY_BLOCKED -> {
                         if (!restriction.isEssential) {
-                            Timber.i("Blocked app detected: $lastForegroundPackage")
-                            appBlocker.blockApp(this@UsageMonitoringService, lastForegroundPackage)
+                            Timber.i("Blocked app detected: $activeForegroundApp")
+                            appBlocker.blockApp(this@UsageMonitoringService, activeForegroundApp)
                         }
                     }
                     RestrictionType.TIME_LIMITED -> {
-                        val usedMinutes = usageRepository.getUsageForToday(lastForegroundPackage)
                         val limit = restriction.dailyLimitMinutes ?: Int.MAX_VALUE
                         val remaining = limit - usedMinutes
 
                         if (remaining <= 0) {
-                            Timber.i("Time limit reached for: $lastForegroundPackage ($usedMinutes/$limit min)")
-                            appBlocker.blockApp(this@UsageMonitoringService, lastForegroundPackage)
-                        } else if (remaining <= 5 && !warnedPackages.contains(lastForegroundPackage)) {
-                            warnedPackages.add(lastForegroundPackage)
+                            Timber.i("Time limit reached for: $activeForegroundApp ($usedMinutes/$limit min)")
+                            appBlocker.blockApp(this@UsageMonitoringService, activeForegroundApp)
+                        } else if (remaining <= 5 && !warnedPackages.contains(activeForegroundApp)) {
+                            warnedPackages.add(activeForegroundApp)
                             showTimeWarningNotification(restriction.appName, remaining)
                         }
                     }
                     RestrictionType.ALWAYS_ALLOWED -> {}
                 }
-            }
-        }
-    }
-
-    private suspend fun updateUsageStats(usageStatsManager: UsageStatsManager) {
-        val today = LocalDate.now()
-        val startOfDay = today.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
-        val now = System.currentTimeMillis()
-
-        val usageStats = usageStatsManager.queryUsageStats(
-            UsageStatsManager.INTERVAL_DAILY,
-            startOfDay,
-            now
-        )
-
-        usageStats?.forEach { stats ->
-            if (stats.totalTimeInForeground > 0) {
-                val minutes = (stats.totalTimeInForeground / 60000).toInt()
-                val pm = packageManager
-                val appName = try {
-                    pm.getApplicationLabel(
-                        pm.getApplicationInfo(stats.packageName, 0)
-                    ).toString()
-                } catch (_: Exception) {
-                    stats.packageName
-                }
-                usageRepository.recordUsage(
-                    packageName = stats.packageName,
-                    appName = appName,
-                    minutes = minutes,
-                    date = today
-                )
             }
         }
     }

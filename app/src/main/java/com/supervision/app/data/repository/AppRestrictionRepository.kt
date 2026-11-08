@@ -48,7 +48,11 @@ class AppRestrictionRepository @Inject constructor(
     fun observeRestrictedCount(): Flow<Int> = dao.observeRestrictedCount()
 
     suspend fun initializeEssentialApps() {
-        val essentialApps = listOf(
+        val defaultApps = listOf(
+            AppRestriction("com.instagram.android", "Instagram", RestrictionType.TIME_LIMITED, dailyLimitMinutes = 30, isEssential = false),
+            AppRestriction("com.twitter.android", "X (Twitter)", RestrictionType.COMPLETELY_BLOCKED, isEssential = false),
+            AppRestriction("com.reddit.frontpage", "Reddit", RestrictionType.COMPLETELY_BLOCKED, isEssential = false),
+            AppRestriction("com.zhiliaoapp.musically", "TikTok", RestrictionType.COMPLETELY_BLOCKED, isEssential = false),
             AppRestriction("com.microsoft.teams", "Microsoft Teams", RestrictionType.ALWAYS_ALLOWED, isEssential = true),
             AppRestriction("com.microsoft.office.outlook", "Outlook", RestrictionType.ALWAYS_ALLOWED, isEssential = true),
             AppRestriction("com.android.phone", "Phone", RestrictionType.ALWAYS_ALLOWED, isEssential = true),
@@ -58,7 +62,7 @@ class AppRestrictionRepository @Inject constructor(
             AppRestriction("com.android.dialer", "Phone", RestrictionType.ALWAYS_ALLOWED, isEssential = true),
             AppRestriction("com.android.emergency", "Emergency", RestrictionType.ALWAYS_ALLOWED, isEssential = true)
         )
-        essentialApps.forEach { app ->
+        defaultApps.forEach { app ->
             if (dao.getByPackageName(app.packageName) == null) {
                 dao.insert(app.toEntity())
             }

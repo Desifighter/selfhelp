@@ -57,14 +57,26 @@
   - DI: `DatabaseModule`
   - Mappers: Entities <-> Domain models
   - Repositories: `DomainClassificationRepository`, `AppRestrictionRepository`, `ProtectionPlanRepository`, `UsageRepository`, `BlockedRequestRepository`
-- **Services (Skeleton):**
-  - `SupervisionVpnService` with DNS packet interception and loopback response
-  - `DnsInterceptor` with multi-tier evaluation
-  - `DomainIntelligenceEngine` with heuristic classifier and blocklist provider
-  - `UsageMonitoringService` using `UsageStatsManager`
-  - `BootCompletedReceiver` for device restart persistence
-  - `SupervisionDeviceAdminReceiver` for enhanced device protection
-  - `TamperDetector` and `PackageChangeReceiver`
+- **Enforcement & Intelligence Services:**
+  - `SupervisionVpnService` with UDP port 53 DNS packet capture and `0.0.0.0` loopback response.
+  - `DnsInterceptor` with multi-tier evaluation, in-memory cache, allowlist, blocklist, and combined web+app social media accounting.
+  - `UpstreamCategorizationProvider` querying Cloudflare Families (`1.1.1.3`) and CleanBrowsing (`185.228.168.168`) for real-time, privacy-first dynamic adult website auto-discovery.
+  - `DomainIntelligenceEngine` orchestrating bundled blocklists, on-device heuristics, and upstream categorization.
+  - `UsageMonitoringService` polling `UsageEvents.Event.ACTIVITY_RESUMED` every 5s with 5-minute allowance warnings and daily reset at midnight.
+  - `AppBlocker` launching full-screen `RestrictionActivity` overlay when limits are exceeded.
+  - `DeviceSecurityManager` leveraging `DevicePolicyManager` for Enhanced Protection mode and uninstall prevention.
+  - `TamperDetector` verifying VPN state, battery optimization, and dual-clock monotonic discrepancy checking.
+  - `BootCompletedReceiver` and `PackageChangeReceiver` for persistence and security event logging.
+- **Presentation Layer (Jetpack Compose):**
+  - Screens: `OnboardingScreen`, `DashboardScreen`, `WebsiteRestrictionsScreen`, `AppRestrictionsScreen`, `SchedulesScreen`, `SettingsScreen`, `RestrictionScreen`.
+  - ViewModels: `OnboardingViewModel`, `DashboardViewModel`, `WebsiteRestrictionsViewModel`, `AppRestrictionsViewModel`.
+  - Navigation: `AppNavGraph` with Material 3 BottomNavigationBar.
+  - Theme: Custom light and dark color schemes, typography, and status indicators.
+- **Testing Suites:**
+  - `HeuristicDomainClassifierTest` (Adult TLDs, keyword detection, safe overrides protection).
+  - `AppRestrictionModelTest` (Daily limits, time exhaustion, essential apps).
+  - `DomainClassificationModelTest` (Category blocking, expiration).
+  - `DnsInterceptorSocialMediaTest` (Instagram web limits, Twitter platform block, Reddit media).
 
 ---
 

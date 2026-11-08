@@ -32,7 +32,7 @@ data class OnboardingUiState(
     val isVpnPermissionGranted: Boolean = false,
     val isUsageStatsGranted: Boolean = false,
     val selectedProtectionMode: ProtectionMode = ProtectionMode.STANDARD,
-    val selectedUnknownPolicy: UnknownDomainPolicy = UnknownDomainPolicy.STRICT,
+    val selectedUnknownPolicy: UnknownDomainPolicy = UnknownDomainPolicy.BALANCED,
     val selectedPlanDurationDays: Int = 30,
     val isSetupComplete: Boolean = false
 )

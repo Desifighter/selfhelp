@@ -30,17 +30,34 @@ class HeuristicDomainClassifier @Inject constructor() {
     )
 
     private val safeOverrides = setOf(
-        "google.com", "youtube.com", "wikipedia.org", "amazon.com",
-        "microsoft.com", "apple.com", "github.com", "stackoverflow.com",
-        "reddit.com", "twitter.com", "x.com", "facebook.com",
-        "instagram.com", "linkedin.com", "medium.com",
-        "healthline.com", "webmd.com", "mayoclinic.org",
-        "nih.gov", "cdc.gov", "who.int",
-        "education.com", "coursera.org", "khanacademy.org",
-        "netflix.com", "spotify.com", "twitch.tv",
+        // Search & Infrastructure
+        "google.com", "wikipedia.org", "amazon.com", "apple.com",
+        "github.com", "gitlab.com", "stackoverflow.com", "medium.com",
         "cloudflare.com", "amazonaws.com", "akamai.net",
         "googleapis.com", "gstatic.com", "googleusercontent.com",
-        "fbcdn.net", "cdninstagram.com", "twimg.com"
+        "fbcdn.net", "cdninstagram.com", "twimg.com",
+        "cloudflare-dns.com", "one.one.one.one", "dns.google",
+
+        // Speed Test & Streaming
+        "fast.com", "speedtest.net", "ooklaserver.net",
+        "netflix.com", "nflxext.com", "nflxvideo.net", "spotify.com", "twitch.tv",
+
+        // Work, Corporate Portal & Microsoft MDM / Intune
+        "microsoft.com", "microsoftonline.com", "msauth.net", "msftauth.net",
+        "windows.net", "office.com", "office365.com", "azure.com", "live.com",
+        "sharepoint.com", "manage.microsoft.com", "microsoftapp.net",
+        "azureedge.net", "trafficmanager.net", "companyportal.microsoft.com",
+        "intuneweb.azurewebsites.net", "teams.microsoft.com", "onedrive.com",
+
+        // Communication & Productivity
+        "zoom.us", "webex.com", "slack.com", "atlassian.net", "jira.com",
+        "salesforce.com", "notion.so", "figma.com", "box.com", "dropbox.com",
+        "whatsapp.com", "telegram.org", "linkedin.com",
+
+        // Health & Education
+        "healthline.com", "webmd.com", "mayoclinic.org",
+        "nih.gov", "cdc.gov", "who.int",
+        "education.com", "coursera.org", "khanacademy.org"
     )
 
     fun classify(domain: String): DomainClassification? {

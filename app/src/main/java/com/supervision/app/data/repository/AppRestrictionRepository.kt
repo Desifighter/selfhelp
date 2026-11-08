@@ -49,12 +49,23 @@ class AppRestrictionRepository @Inject constructor(
 
     suspend fun initializeEssentialApps() {
         val defaultApps = listOf(
+            // Restricted Entertainment / Social Platforms
             AppRestriction("com.instagram.android", "Instagram", RestrictionType.TIME_LIMITED, dailyLimitMinutes = 30, isEssential = false),
+            AppRestriction("com.google.android.youtube", "YouTube", RestrictionType.COMPLETELY_BLOCKED, isEssential = false),
             AppRestriction("com.twitter.android", "X (Twitter)", RestrictionType.COMPLETELY_BLOCKED, isEssential = false),
             AppRestriction("com.reddit.frontpage", "Reddit", RestrictionType.COMPLETELY_BLOCKED, isEssential = false),
             AppRestriction("com.zhiliaoapp.musically", "TikTok", RestrictionType.COMPLETELY_BLOCKED, isEssential = false),
+
+            // Protected Work & Enterprise MDM Platforms (Zero Impact)
+            AppRestriction("com.microsoft.windowsintune.companyportal", "Company Portal", RestrictionType.ALWAYS_ALLOWED, isEssential = true),
             AppRestriction("com.microsoft.teams", "Microsoft Teams", RestrictionType.ALWAYS_ALLOWED, isEssential = true),
             AppRestriction("com.microsoft.office.outlook", "Outlook", RestrictionType.ALWAYS_ALLOWED, isEssential = true),
+            AppRestriction("com.microsoft.emmx", "Microsoft Edge", RestrictionType.ALWAYS_ALLOWED, isEssential = true),
+            AppRestriction("com.microsoft.skydrive", "OneDrive", RestrictionType.ALWAYS_ALLOWED, isEssential = true),
+            AppRestriction("com.microsoft.office.officehubrow", "Microsoft 365", RestrictionType.ALWAYS_ALLOWED, isEssential = true),
+            AppRestriction("com.motorola.securevault", "Secure Vault", RestrictionType.ALWAYS_ALLOWED, isEssential = true),
+
+            // Protected System & Communication Essentials
             AppRestriction("com.android.phone", "Phone", RestrictionType.ALWAYS_ALLOWED, isEssential = true),
             AppRestriction("com.android.messaging", "Messages", RestrictionType.ALWAYS_ALLOWED, isEssential = true),
             AppRestriction("com.google.android.apps.messaging", "Messages", RestrictionType.ALWAYS_ALLOWED, isEssential = true),
@@ -63,7 +74,11 @@ class AppRestrictionRepository @Inject constructor(
             AppRestriction("com.android.emergency", "Emergency", RestrictionType.ALWAYS_ALLOWED, isEssential = true)
         )
         defaultApps.forEach { app ->
-            if (dao.getByPackageName(app.packageName) == null) {
+            val existing = dao.getByPackageName(app.packageName)
+            if (existing == null) {
+                dao.insert(app.toEntity())
+            } else if (app.isEssential && (!existing.isEssential || existing.restrictionType != RestrictionType.ALWAYS_ALLOWED.name)) {
+                // Ensure work & essential applications can never be restricted
                 dao.insert(app.toEntity())
             }
         }

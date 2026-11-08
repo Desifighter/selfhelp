@@ -24,6 +24,12 @@ class AppRestrictionsViewModel @Inject constructor(
             initialValue = emptyList()
         )
 
+    init {
+        viewModelScope.launch {
+            repository.initializeEssentialApps()
+        }
+    }
+
     fun updateRestrictionType(app: AppRestriction, newType: RestrictionType) {
         viewModelScope.launch {
             if (app.isEssential && newType != RestrictionType.ALWAYS_ALLOWED) {

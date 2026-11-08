@@ -48,6 +48,7 @@
     
     <!-- Social Media -->
     <string name="social_title">Social Media</string>
+    <string name="accessibility_description">Monitors browser navigation to block adult content, YouTube Shorts, and distracting platforms.</string>
     <string name="social_instagram">Instagram</string>
     <string name="social_twitter">X / Twitter</string>
     <string name="social_reddit">Reddit</string>

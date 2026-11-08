@@ -19,7 +19,7 @@ data class ProtectionPlanEntity(
     val protectionMode: String = "STANDARD",
 
     @ColumnInfo(name = "unknown_domain_policy")
-    val unknownDomainPolicy: String = "STRICT",
+    val unknownDomainPolicy: String = "BALANCED",
 
     @ColumnInfo(name = "start_date")
     val startDate: Long? = null,

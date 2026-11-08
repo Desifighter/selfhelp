@@ -30,7 +30,7 @@ class DnsInterceptor @Inject constructor(
     private val blockCache = ConcurrentHashMap<String, BlockDecision>()
     private val pendingClassifications = ConcurrentHashMap<String, Boolean>()
 
-    private var unknownDomainPolicy: UnknownDomainPolicy = UnknownDomainPolicy.STRICT
+    private var unknownDomainPolicy: UnknownDomainPolicy = UnknownDomainPolicy.BALANCED
 
     fun setUnknownDomainPolicy(policy: UnknownDomainPolicy) {
         this.unknownDomainPolicy = policy
@@ -152,23 +152,56 @@ class DnsInterceptor @Inject constructor(
             }
         }
 
+        // YouTube & YouTube Short URLs check (app & web browser access)
+        if (domain == "youtu.be" || domain.endsWith(".youtu.be")) {
+            // youtu.be is dedicated to YouTube short URLs and links - always blocked
+            return BlockDecision(
+                blocked = true,
+                reason = "YouTube Short URL: Access Blocked",
+                category = ClassificationCategory.SOCIAL_MEDIA
+            )
+        }
+
+        if (domain == "youtube.com" || domain.endsWith(".youtube.com") ||
+            domain == "ytimg.com" || domain.endsWith(".ytimg.com") ||
+            domain == "googlevideo.com" || domain.endsWith(".googlevideo.com")) {
+            val ytRestriction = appRestrictionRepo.getRestriction("com.google.android.youtube")
+            if (ytRestriction != null) {
+                when (ytRestriction.restrictionType) {
+                    RestrictionType.COMPLETELY_BLOCKED -> {
+                        return BlockDecision(
+                            blocked = true,
+                            reason = "YouTube: Platform Blocked",
+                            category = ClassificationCategory.SOCIAL_MEDIA
+                        )
+                    }
+                    RestrictionType.TIME_LIMITED -> {
+                        val usedToday = usageRepo.getUsageForToday("com.google.android.youtube")
+                        val limit = ytRestriction.dailyLimitMinutes ?: 30
+                        if (usedToday >= limit) {
+                            return BlockDecision(
+                                blocked = true,
+                                reason = "YouTube: Daily limit ($limit min) reached",
+                                category = ClassificationCategory.SOCIAL_MEDIA
+                            )
+                        }
+                    }
+                    RestrictionType.ALWAYS_ALLOWED -> { /* Proceed */ }
+                }
+            }
+        }
+
         return null
     }
 
     private suspend fun handleUnknownDomain(domain: String): BlockDecision {
         if (pendingClassifications.putIfAbsent(domain, true) != null) {
-            return when (unknownDomainPolicy) {
-                UnknownDomainPolicy.STRICT -> BlockDecision(
-                    blocked = true,
-                    reason = "Pending classification (strict mode)",
-                    category = ClassificationCategory.UNKNOWN
-                )
-                UnknownDomainPolicy.BALANCED -> BlockDecision(
-                    blocked = false,
-                    reason = "Pending classification (balanced mode)",
-                    category = ClassificationCategory.UNKNOWN
-                )
-            }
+            // Concurrent query while classification is running — allow through so page loads
+            return BlockDecision(
+                blocked = false,
+                reason = "Pending classification",
+                category = ClassificationCategory.UNKNOWN
+            )
         }
 
         try {

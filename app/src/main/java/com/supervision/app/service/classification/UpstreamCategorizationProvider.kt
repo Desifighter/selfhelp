@@ -89,7 +89,18 @@ class UpstreamCategorizationProvider @Inject constructor() {
             )
         } catch (e: Exception) {
             Timber.w(e, "Categorization query failed for $normalized: ${e.message}")
-            return@withContext null
+            // When upstream query cannot complete, treat as safe to prevent blocking harmless websites
+            return@withContext DomainClassification(
+                domain = normalized,
+                category = ClassificationCategory.SAFE,
+                status = ClassificationStatus.PENDING,
+                source = ClassificationSource.DEFAULT_POLICY,
+                confidence = 0.50f,
+                firstDetectedAt = Instant.now(),
+                lastClassifiedAt = Instant.now(),
+                expiresAt = Instant.now().plus(1, ChronoUnit.DAYS),
+                isAutomatic = true
+            )
         }
     }
 

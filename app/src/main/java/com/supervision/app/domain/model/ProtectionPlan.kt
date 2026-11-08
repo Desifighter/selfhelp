@@ -9,7 +9,7 @@ data class ProtectionPlan(
     val name: String = "Default Plan",
     val isActive: Boolean = false,
     val protectionMode: ProtectionMode = ProtectionMode.STANDARD,
-    val unknownDomainPolicy: UnknownDomainPolicy = UnknownDomainPolicy.STRICT,
+    val unknownDomainPolicy: UnknownDomainPolicy = UnknownDomainPolicy.BALANCED,
     val startDate: Instant? = null,
     val endDate: Instant? = null,
     val activeDays: Set<DayOfWeek> = DayOfWeek.entries.toSet(),

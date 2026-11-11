@@ -2,6 +2,7 @@ package com.supervision.app.presentation.onboarding
 
 import android.app.Activity
 import android.content.Intent
+import android.net.Uri
 import android.net.VpnService
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -87,7 +88,7 @@ fun OnboardingScreen(
                 currentStep = uiState.currentStep,
                 totalSteps = uiState.totalSteps,
                 canProceed = when (uiState.currentStep) {
-                    1 -> uiState.isVpnPermissionGranted && uiState.isUsageStatsGranted
+                    1 -> uiState.isVpnPermissionGranted && uiState.isUsageStatsGranted && uiState.isOverlayPermissionGranted
                     else -> true
                 },
                 onNext = {
@@ -121,6 +122,7 @@ fun OnboardingScreen(
                     1 -> PermissionsStep(
                         isVpnGranted = uiState.isVpnPermissionGranted,
                         isUsageGranted = uiState.isUsageStatsGranted,
+                        isOverlayGranted = uiState.isOverlayPermissionGranted,
                         onRequestVpn = {
                             val intent = VpnService.prepare(context)
                             if (intent != null) {
@@ -131,6 +133,13 @@ fun OnboardingScreen(
                         },
                         onRequestUsage = {
                             context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+                        },
+                        onRequestOverlay = {
+                            val intent = Intent(
+                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                Uri.parse("package:${context.packageName}")
+                            )
+                            context.startActivity(intent)
                         }
                     )
                     2 -> ProtectionModeStep(
@@ -222,8 +231,10 @@ private fun WelcomeStep() {
 private fun PermissionsStep(
     isVpnGranted: Boolean,
     isUsageGranted: Boolean,
+    isOverlayGranted: Boolean,
     onRequestVpn: () -> Unit,
-    onRequestUsage: () -> Unit
+    onRequestUsage: () -> Unit,
+    onRequestOverlay: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Text(
@@ -232,7 +243,7 @@ private fun PermissionsStep(
             fontWeight = FontWeight.Bold
         )
         Text(
-            text = "Supervision runs completely offline and on-device. These permissions are required for filtering and limit enforcement.",
+            text = "Supervision runs completely offline and on-device. These permissions are required for filtering, limit enforcement, and instant blocking.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -251,10 +262,20 @@ private fun PermissionsStep(
 
         PermissionCard(
             title = "Usage Access (Screen Time Limits)",
-            description = "Allows Supervision to count foreground minutes for apps like Instagram and trigger restriction screens when daily limits expire.",
+            description = "Allows Supervision to count foreground minutes for apps like Instagram and detect when daily limits expire.",
             isGranted = isUsageGranted,
             icon = Icons.Default.QueryBuilder,
             onRequest = onRequestUsage
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        PermissionCard(
+            title = "Display Over Other Apps (Instant Blocker)",
+            description = "Allows Supervision to display the full-screen restriction overlay immediately when a blocked app is launched.",
+            isGranted = isOverlayGranted,
+            icon = Icons.Default.Shield,
+            onRequest = onRequestOverlay
         )
     }
 }

@@ -31,6 +31,7 @@ data class OnboardingUiState(
     val totalSteps: Int = 5,
     val isVpnPermissionGranted: Boolean = false,
     val isUsageStatsGranted: Boolean = false,
+    val isOverlayPermissionGranted: Boolean = false,
     val selectedProtectionMode: ProtectionMode = ProtectionMode.STANDARD,
     val selectedUnknownPolicy: UnknownDomainPolicy = UnknownDomainPolicy.BALANCED,
     val selectedPlanDurationDays: Int = 30,
@@ -88,10 +89,12 @@ class OnboardingViewModel @Inject constructor(
             context.packageName
         )
         val usageGranted = mode == android.app.AppOpsManager.MODE_ALLOWED
+        val overlayGranted = android.provider.Settings.canDrawOverlays(context)
 
         _uiState.value = _uiState.value.copy(
             isVpnPermissionGranted = vpnGranted,
-            isUsageStatsGranted = usageGranted
+            isUsageStatsGranted = usageGranted,
+            isOverlayPermissionGranted = overlayGranted
         )
     }
 

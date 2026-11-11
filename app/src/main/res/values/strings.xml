@@ -99,5 +99,9 @@
     <string name="minutes">minutes</string>
     <string name="hours">hours</string>
     <string name="days">days</string>
+
+    <!-- Accessibility Service -->
+    <string name="accessibility_service_name">Supervision Instant App Blocker</string>
+    <string name="accessibility_service_description">Instantly closes blocked apps (like Instagram and Telegram) the moment they launch so they cannot run in the background or linger in recent apps.</string>
 </resources>
 

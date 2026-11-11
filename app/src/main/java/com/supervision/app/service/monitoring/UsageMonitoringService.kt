@@ -234,6 +234,22 @@ class UsageMonitoringService : Service() {
                 }
             }
         }
+
+        // 5. Proactively terminate background processes of completely blocked apps (e.g. Instagram, Telegram)
+        am?.runningAppProcesses?.forEach { proc ->
+            if (proc.pkgList != null && proc.importance > android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE) {
+                for (pkg in proc.pkgList) {
+                    if (pkg != packageName) {
+                        val restriction = appRestrictionRepository.getRestriction(pkg)
+                        if (restriction?.restrictionType == RestrictionType.COMPLETELY_BLOCKED && !restriction.isEssential) {
+                            try {
+                                am.killBackgroundProcesses(pkg)
+                            } catch (_: Exception) {}
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private suspend fun syncDailyUsageStats(usageStatsManager: UsageStatsManager, today: LocalDate, now: Long) {

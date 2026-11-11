@@ -8,6 +8,10 @@ import androidx.core.app.NotificationCompat
 import com.supervision.app.R
 import com.supervision.app.SupervisionApp
 import com.supervision.app.presentation.restriction.RestrictionActivity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
@@ -28,16 +32,7 @@ class AppBlocker @Inject constructor() {
         lastBlockTime[packageName] = now
         Timber.i("Enforcing blocking overlay for: $packageName")
 
-        // 1. Terminate background and freeform floating window processes for restricted package
-        try {
-            val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
-            am?.killBackgroundProcesses(packageName)
-            Timber.i("Terminated background process for: $packageName")
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to kill background process for $packageName")
-        }
-
-        // 2. Send HOME intent to dismiss restricted application from foreground
+        // 1. Send HOME intent to dismiss restricted application from foreground immediately
         val homeIntent = Intent(Intent.ACTION_MAIN).apply {
             addCategory(Intent.CATEGORY_HOME)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
@@ -48,7 +43,7 @@ class AppBlocker @Inject constructor() {
             Timber.e(e, "Failed to navigate to HOME")
         }
 
-        // 3. Launch full-screen RestrictionActivity overlay
+        // 2. Launch full-screen RestrictionActivity overlay
         val blockIntent = Intent(context, RestrictionActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra(RestrictionActivity.EXTRA_BLOCKED_PACKAGE, packageName)
@@ -84,6 +79,25 @@ class AppBlocker @Inject constructor() {
             notificationManager.notify(packageName.hashCode(), notification)
         } catch (e: Exception) {
             Timber.e(e, "Failed to send fullScreenIntent notification")
+        }
+
+        // 4. Forcefully kill the background process once dismissed from foreground
+        CoroutineScope(Dispatchers.IO).launch {
+            val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
+            delay(150)
+            try {
+                am?.killBackgroundProcesses(packageName)
+                Timber.i("Killed background process at +150ms for: $packageName")
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to kill background process")
+            }
+            delay(500)
+            try {
+                am?.killBackgroundProcesses(packageName)
+                Timber.i("Killed background process at +650ms for: $packageName")
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to kill background process")
+            }
         }
     }
 }

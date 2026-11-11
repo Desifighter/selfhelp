@@ -1,10 +1,13 @@
 package com.supervision.app.presentation.restriction
 
+import android.app.ActivityManager
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
+import timber.log.Timber
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -54,9 +57,12 @@ class RestrictionActivity : ComponentActivity() {
         val restrictionType = intent.getStringExtra(EXTRA_RESTRICTION_TYPE) ?: "RESTRICTED"
         val category = intent.getStringExtra(EXTRA_CATEGORY) ?: "Prohibited Content"
 
+        // Terminate background process of blocked package now that RestrictionActivity is foreground
+        terminateBlockedPackage(packageName)
+
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                navigateToHome()
+                navigateToHome(packageName)
             }
         })
 
@@ -67,14 +73,29 @@ class RestrictionActivity : ComponentActivity() {
                     restrictionType = restrictionType,
                     category = category,
                     onDismiss = {
-                        navigateToHome()
+                        navigateToHome(packageName)
                     }
                 )
             }
         }
     }
 
-    private fun navigateToHome() {
+    private fun terminateBlockedPackage(packageName: String) {
+        if (packageName != "Application" && packageName != this.packageName) {
+            try {
+                val am = getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+                am?.killBackgroundProcesses(packageName)
+                Timber.i("RestrictionActivity terminated background process for: $packageName")
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to kill background process for: $packageName")
+            }
+        }
+    }
+
+    private fun navigateToHome(packageName: String? = null) {
+        if (packageName != null) {
+            terminateBlockedPackage(packageName)
+        }
         val homeIntent = Intent(Intent.ACTION_MAIN).apply {
             addCategory(Intent.CATEGORY_HOME)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK

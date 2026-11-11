@@ -61,9 +61,7 @@ fun DashboardScreen(
         }
 
         item {
-            InstagramAllowanceCard(
-                remainingMinutes = uiState.instagramRemainingMinutes
-            )
+            RestrictedPlatformsBanner()
         }
 
         item {
@@ -233,7 +231,7 @@ private fun ProtectionStatusHeader(uiState: DashboardUiState) {
 }
 
 @Composable
-private fun InstagramAllowanceCard(remainingMinutes: Int) {
+private fun RestrictedPlatformsBanner() {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
@@ -244,42 +242,52 @@ private fun InstagramAllowanceCard(remainingMinutes: Int) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Box(
                     modifier = Modifier
                         .size(42.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFE1306C).copy(alpha = 0.15f)),
+                        .background(Color(0xFFE53935).copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.QueryBuilder,
-                        contentDescription = "Instagram Limit",
-                        tint = Color(0xFFE1306C),
+                        imageVector = Icons.Default.Block,
+                        contentDescription = "Platforms Blocked",
+                        tint = Color(0xFFE53935),
                         modifier = Modifier.size(24.dp)
                     )
                 }
                 Spacer(modifier = Modifier.width(14.dp))
                 Column {
                     Text(
-                        text = "Instagram Daily Limit",
+                        text = "Social Media Blocked",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "Allowance: 30 minutes daily",
+                        text = "Instagram, YouTube, X, Reddit (0m Allowed)",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            Text(
-                text = "$remainingMinutes min left",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = if (remainingMinutes > 5) Color(0xFF2E7D32) else Color(0xFFD32F2F)
-            )
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color(0xFF616161))
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = "LOCKED",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }

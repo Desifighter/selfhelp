@@ -50,6 +50,30 @@ class UsageMonitoringService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        Timber.i("UsageMonitoringService onTaskRemoved — ensuring persistent background execution")
+        try {
+            val restartIntent = Intent(applicationContext, UsageMonitoringService::class.java).apply {
+                action = ACTION_START
+            }
+            val pendingIntent = android.app.PendingIntent.getForegroundService(
+                applicationContext,
+                101,
+                restartIntent,
+                android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_ONE_SHOT
+            )
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as? android.app.AlarmManager
+            alarmManager?.setExactAndAllowWhileIdle(
+                android.app.AlarmManager.RTC_WAKEUP,
+                System.currentTimeMillis() + 1000L,
+                pendingIntent
+            )
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to schedule service resurrection on task removed")
+        }
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {

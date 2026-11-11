@@ -20,12 +20,14 @@ class BootCompletedReceiver : BroadcastReceiver() {
     lateinit var protectionPlanRepository: ProtectionPlanRepository
 
     override fun onReceive(context: Context, intent: Intent?) {
-        if (intent?.action != Intent.ACTION_BOOT_COMPLETED &&
-            intent?.action != "android.intent.action.QUICKBOOT_POWERON") {
+        val incomingAction = intent?.action
+        if (incomingAction != Intent.ACTION_BOOT_COMPLETED &&
+            incomingAction != "android.intent.action.QUICKBOOT_POWERON" &&
+            incomingAction != Intent.ACTION_MY_PACKAGE_REPLACED) {
             return
         }
 
-        Timber.i("Boot completed — checking protection state")
+        Timber.i("Boot or package update completed ($incomingAction) — checking protection state")
 
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
@@ -35,12 +37,12 @@ class BootCompletedReceiver : BroadcastReceiver() {
                     Timber.i("Active protection plan found: ${activePlan.name}")
 
                     val vpnIntent = Intent(context, SupervisionVpnService::class.java).apply {
-                        action = SupervisionVpnService.ACTION_START
+                        setAction(SupervisionVpnService.ACTION_START)
                     }
                     context.startForegroundService(vpnIntent)
 
                     val monitoringIntent = Intent(context, UsageMonitoringService::class.java).apply {
-                        action = UsageMonitoringService.ACTION_START
+                        setAction(UsageMonitoringService.ACTION_START)
                     }
                     context.startForegroundService(monitoringIntent)
 

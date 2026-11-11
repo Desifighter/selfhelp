@@ -3,8 +3,13 @@ package com.supervision.app
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.supervision.app.service.watchdog.ServiceWatchdogWorker
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
+import java.util.concurrent.TimeUnit
 
 @HiltAndroidApp
 class SupervisionApp : Application() {
@@ -13,6 +18,24 @@ class SupervisionApp : Application() {
         super.onCreate()
         setupTimber()
         createNotificationChannels()
+        setupWatchdog()
+    }
+
+    private fun setupWatchdog() {
+        try {
+            val watchdogRequest = PeriodicWorkRequestBuilder<ServiceWatchdogWorker>(
+                15, TimeUnit.MINUTES
+            ).build()
+
+            WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                "SupervisionServiceWatchdog",
+                ExistingPeriodicWorkPolicy.KEEP,
+                watchdogRequest
+            )
+            Timber.i("Scheduled SupervisionServiceWatchdog periodic worker")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to schedule SupervisionServiceWatchdog")
+        }
     }
 
     private fun setupTimber() {

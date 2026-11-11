@@ -51,6 +51,8 @@ class AppRestrictionRepository @Inject constructor(
         val defaultApps = listOf(
             // Restricted Entertainment / Social Platforms (Completely Blocked — 0 minutes)
             AppRestriction("com.instagram.android", "Instagram", RestrictionType.COMPLETELY_BLOCKED, isEssential = false),
+            AppRestriction("org.telegram.messenger", "Telegram", RestrictionType.COMPLETELY_BLOCKED, isEssential = false),
+            AppRestriction("org.thunderdog.challegram", "Telegram X", RestrictionType.COMPLETELY_BLOCKED, isEssential = false),
             AppRestriction("com.google.android.youtube", "YouTube", RestrictionType.COMPLETELY_BLOCKED, isEssential = false),
             AppRestriction("com.twitter.android", "X (Twitter)", RestrictionType.COMPLETELY_BLOCKED, isEssential = false),
             AppRestriction("com.reddit.frontpage", "Reddit", RestrictionType.COMPLETELY_BLOCKED, isEssential = false),
@@ -79,8 +81,11 @@ class AppRestrictionRepository @Inject constructor(
             val existing = dao.getByPackageName(app.packageName)
             if (existing == null) {
                 dao.insert(app.toEntity())
-            } else if (app.packageName == "com.instagram.android" && existing.restrictionType != RestrictionType.COMPLETELY_BLOCKED.name) {
-                // Ensure Instagram is completely blocked (0 minutes allowed)
+            } else if ((app.packageName == "com.instagram.android" ||
+                        app.packageName == "org.telegram.messenger" ||
+                        app.packageName == "org.thunderdog.challegram") &&
+                        existing.restrictionType != RestrictionType.COMPLETELY_BLOCKED.name) {
+                // Ensure Instagram and Telegram are completely blocked (0 minutes allowed)
                 dao.insert(app.toEntity())
             } else if (app.isEssential && (!existing.isEssential || existing.restrictionType != RestrictionType.ALWAYS_ALLOWED.name)) {
                 // Ensure work & essential applications can never be restricted

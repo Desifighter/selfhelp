@@ -67,7 +67,7 @@ class HeuristicDomainClassifier @Inject constructor() {
         // Communication & Productivity
         "zoom.us", "webex.com", "slack.com", "atlassian.net", "jira.com",
         "salesforce.com", "notion.so", "figma.com", "box.com", "dropbox.com",
-        "whatsapp.com", "telegram.org", "linkedin.com",
+        "whatsapp.com", "linkedin.com",
 
         // Health & Education
         "healthline.com", "webmd.com", "mayoclinic.org",

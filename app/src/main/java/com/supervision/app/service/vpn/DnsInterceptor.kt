@@ -192,6 +192,45 @@ class DnsInterceptor @Inject constructor(
             }
         }
 
+        // Telegram check: app & web platform blocking (telegram.org, t.me, telesco.pe, etc.)
+        if (domain == "t.me" || domain.endsWith(".t.me") ||
+            domain == "telegram.org" || domain.endsWith(".telegram.org") ||
+            domain == "telegram.me" || domain.endsWith(".telegram.me") ||
+            domain == "telesco.pe" || domain.endsWith(".telesco.pe") ||
+            domain == "telegram.dog" || domain.endsWith(".telegram.dog") ||
+            domain == "tdesktop.com" || domain.endsWith(".tdesktop.com")) {
+            val telegramRestriction = appRestrictionRepo.getRestriction("org.telegram.messenger")
+            if (telegramRestriction != null) {
+                when (telegramRestriction.restrictionType) {
+                    RestrictionType.COMPLETELY_BLOCKED -> {
+                        return BlockDecision(
+                            blocked = true,
+                            reason = "Telegram: Platform Blocked",
+                            category = ClassificationCategory.SOCIAL_MEDIA
+                        )
+                    }
+                    RestrictionType.TIME_LIMITED -> {
+                        val usedToday = usageRepo.getUsageForToday("org.telegram.messenger")
+                        val limit = telegramRestriction.dailyLimitMinutes ?: 0
+                        if (usedToday >= limit) {
+                            return BlockDecision(
+                                blocked = true,
+                                reason = "Telegram: Daily limit reached",
+                                category = ClassificationCategory.SOCIAL_MEDIA
+                            )
+                        }
+                    }
+                    RestrictionType.ALWAYS_ALLOWED -> { /* Proceed */ }
+                }
+            } else {
+                return BlockDecision(
+                    blocked = true,
+                    reason = "Telegram: Platform Blocked",
+                    category = ClassificationCategory.SOCIAL_MEDIA
+                )
+            }
+        }
+
         return null
     }
 

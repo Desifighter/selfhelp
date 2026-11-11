@@ -321,7 +321,7 @@ private fun RestrictedPlatformsBanner() {
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "Instagram, YouTube, X, Reddit (0m Allowed)",
+                        text = "Instagram, Telegram, YouTube, X, Reddit (0m Allowed)",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

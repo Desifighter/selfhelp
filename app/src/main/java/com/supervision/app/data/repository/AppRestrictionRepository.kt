@@ -64,6 +64,8 @@ class AppRestrictionRepository @Inject constructor(
             AppRestriction("com.microsoft.skydrive", "OneDrive", RestrictionType.ALWAYS_ALLOWED, isEssential = true),
             AppRestriction("com.microsoft.office.officehubrow", "Microsoft 365", RestrictionType.ALWAYS_ALLOWED, isEssential = true),
             AppRestriction("com.motorola.securevault", "Secure Vault", RestrictionType.ALWAYS_ALLOWED, isEssential = true),
+            AppRestriction("cris.org.in.prs.ima", "IRCTC Rail Connect", RestrictionType.ALWAYS_ALLOWED, isEssential = true),
+            AppRestriction("org.cris.aikyam", "CRIS Aikyam", RestrictionType.ALWAYS_ALLOWED, isEssential = true),
 
             // Protected System & Communication Essentials
             AppRestriction("com.android.phone", "Phone", RestrictionType.ALWAYS_ALLOWED, isEssential = true),

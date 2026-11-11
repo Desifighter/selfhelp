@@ -57,7 +57,10 @@ class HeuristicDomainClassifier @Inject constructor() {
         // Health & Education
         "healthline.com", "webmd.com", "mayoclinic.org",
         "nih.gov", "cdc.gov", "who.int",
-        "education.com", "coursera.org", "khanacademy.org"
+        "education.com", "coursera.org", "khanacademy.org",
+
+        // Essential Services & Railway Ticketing (IRCTC / CRIS)
+        "irctc.co.in", "cris.org.in", "indianrail.gov.in", "irctc.com"
     )
 
     fun classify(domain: String): DomainClassification? {

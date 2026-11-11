@@ -58,7 +58,10 @@ class HeuristicDomainClassifierTest {
         val keywordDomains = listOf(
             "randompornsite.com",
             "xxxmovieshub.net",
-            "myxvideosstream.org"
+            "myxvideosstream.org",
+            "desibabe.co",
+            "desisexclips.com",
+            "bhabhixxx.net"
         )
 
         for (domain in keywordDomains) {

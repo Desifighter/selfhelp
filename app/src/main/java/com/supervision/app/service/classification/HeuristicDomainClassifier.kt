@@ -25,7 +25,15 @@ class HeuristicDomainClassifier @Inject constructor() {
         "motherless", "txxx", "tubepornclassic", "drtuber", "nuvid", "vporn", "daftsex",
         "daftporn", "pornone", "bravoteens", "fapello", "heavy-r", "leakgirls", "cam4",
         "camsoda", "bongacams", "flirt4free", "myfreecams", "porngo", "pornhat", "porn300",
-        "4tube", "cumlouder", "porndoe", "hdporn", "jav", "javhd", "nsfw"
+        "4tube", "cumlouder", "porndoe", "hdporn", "jav", "javhd", "nsfw",
+        // Desi & Regional Adult Keywords
+        "desibabe", "bhabhi", "antvasna", "kamababa", "desikahani", "savita", "chut", "choot",
+        "malluporn", "tamilporn", "teluguporn", "banglaporn", "hindisex", "indianporn", "indiansex",
+        // Explicit Anatomy & Acts
+        "pussy", "boobs", "tits", "cock", "blowjob", "handjob", "creampie", "gangbang",
+        "deepthroat", "cuckold", "dildo", "masturbat", "orgasm", "ejaculat", "cumshot",
+        "slut", "whore", "cunt", "shemale", "transsexual", "voyeur", "upskirt", "incest",
+        "porno", "sexo", "sexi", "erotik", "adult"
     )
 
     private val weakAdultKeywords = setOf(
@@ -113,6 +121,67 @@ class HeuristicDomainClassifier @Inject constructor() {
                     isAutomatic = true
                 )
             }
+        }
+
+        // Compound rules: Desi / Regional adult networks (e.g. desibabe, desisex, desihot, desimms)
+        if (domainWithoutTld.contains("desi") && (
+            domainWithoutTld.contains("babe") || domainWithoutTld.contains("sex") ||
+            domainWithoutTld.contains("porn") || domainWithoutTld.contains("hot") ||
+            domainWithoutTld.contains("kahani") || domainWithoutTld.contains("bhabhi") ||
+            domainWithoutTld.contains("mms") || domainWithoutTld.contains("scandal") ||
+            domainWithoutTld.contains("leak") || domainWithoutTld.contains("video") ||
+            domainWithoutTld.contains("clip") || domainWithoutTld.contains("aunty") ||
+            domainWithoutTld.contains("chut") || domainWithoutTld.contains("maal")
+        )) {
+            Timber.i("Domain $normalized matched Desi adult compound pattern")
+            return DomainClassification(
+                domain = normalized,
+                category = ClassificationCategory.PORNOGRAPHY,
+                status = ClassificationStatus.CONFIRMED,
+                source = ClassificationSource.ON_DEVICE,
+                confidence = 0.90f,
+                expiresAt = Instant.now().plus(30, ChronoUnit.DAYS),
+                isAutomatic = true
+            )
+        }
+
+        // Compound rules: Babe compounds (e.g. desibabe, sexybabe, teenbabe, hotbabe, cambabes)
+        if (domainWithoutTld.contains("babe") && (
+            domainWithoutTld.contains("desi") || domainWithoutTld.contains("hot") ||
+            domainWithoutTld.contains("sexy") || domainWithoutTld.contains("teen") ||
+            domainWithoutTld.contains("cam") || domainWithoutTld.contains("tube") ||
+            domainWithoutTld.contains("naked") || domainWithoutTld.contains("nude") ||
+            domainWithoutTld.contains("milf") || domainWithoutTld.contains("live")
+        )) {
+            Timber.i("Domain $normalized matched Babe adult compound pattern")
+            return DomainClassification(
+                domain = normalized,
+                category = ClassificationCategory.PORNOGRAPHY,
+                status = ClassificationStatus.CONFIRMED,
+                source = ClassificationSource.ON_DEVICE,
+                confidence = 0.90f,
+                expiresAt = Instant.now().plus(30, ChronoUnit.DAYS),
+                isAutomatic = true
+            )
+        }
+
+        // Compound rules: Aunty / Bhabhi compounds
+        if (domainWithoutTld.contains("aunty") && (
+            domainWithoutTld.contains("sex") || domainWithoutTld.contains("porn") ||
+            domainWithoutTld.contains("hot") || domainWithoutTld.contains("nude") ||
+            domainWithoutTld.contains("mms") || domainWithoutTld.contains("video") ||
+            domainWithoutTld.contains("bhabhi") || domainWithoutTld.contains("desi")
+        )) {
+            Timber.i("Domain $normalized matched Aunty adult compound pattern")
+            return DomainClassification(
+                domain = normalized,
+                category = ClassificationCategory.PORNOGRAPHY,
+                status = ClassificationStatus.CONFIRMED,
+                source = ClassificationSource.ON_DEVICE,
+                confidence = 0.90f,
+                expiresAt = Instant.now().plus(30, ChronoUnit.DAYS),
+                isAutomatic = true
+            )
         }
 
         for (keyword in weakAdultKeywords) {

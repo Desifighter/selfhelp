@@ -8,6 +8,7 @@ import com.supervision.app.domain.model.ClassificationCategory
 import com.supervision.app.domain.model.RestrictionType
 import com.supervision.app.domain.model.UnknownDomainPolicy
 import com.supervision.app.service.classification.DomainIntelligenceEngine
+import kotlinx.coroutines.CompletableDeferred
 import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
@@ -28,7 +29,7 @@ class DnsInterceptor @Inject constructor(
     private val usageRepo: UsageRepository
 ) {
     private val blockCache = ConcurrentHashMap<String, BlockDecision>()
-    private val pendingClassifications = ConcurrentHashMap<String, Boolean>()
+    private val pendingClassifications = ConcurrentHashMap<String, CompletableDeferred<BlockDecision>>()
 
     private var unknownDomainPolicy: UnknownDomainPolicy = UnknownDomainPolicy.BALANCED
 
@@ -195,22 +196,25 @@ class DnsInterceptor @Inject constructor(
     }
 
     private suspend fun handleUnknownDomain(domain: String): BlockDecision {
-        if (pendingClassifications.putIfAbsent(domain, true) != null) {
-            // Concurrent query while classification is running — allow through so page loads
-            return BlockDecision(
-                blocked = false,
-                reason = "Pending classification",
-                category = ClassificationCategory.UNKNOWN
-            )
+        val existing = pendingClassifications[domain]
+        if (existing != null) {
+            // Concurrent query (e.g. A and AAAA) while classification is running — wait for the result
+            return existing.await()
+        }
+
+        val newDeferred = CompletableDeferred<BlockDecision>()
+        val winner = pendingClassifications.putIfAbsent(domain, newDeferred)
+        if (winner != null) {
+            return winner.await()
         }
 
         try {
             val classification = intelligenceEngine.classifyDomain(domain)
 
-            if (classification != null) {
+            val decision = if (classification != null) {
                 classificationRepo.saveClassification(classification)
 
-                val decision = if (classification.isBlocked) {
+                if (classification.isBlocked) {
                     BlockDecision(
                         blocked = true,
                         reason = "Auto-classified: ${classification.category} (${classification.source})",
@@ -223,34 +227,35 @@ class DnsInterceptor @Inject constructor(
                         category = classification.category
                     )
                 }
-
-                blockCache[domain] = decision
-                if (decision.blocked) {
-                    recordBlock(domain, decision)
-                }
-                return decision
-            }
-
-            return when (unknownDomainPolicy) {
-                UnknownDomainPolicy.STRICT -> {
-                    val decision = BlockDecision(
-                        blocked = true,
-                        reason = "Unclassified domain (strict mode)",
-                        category = ClassificationCategory.UNKNOWN
-                    )
-                    blockCache[domain] = decision
-                    decision
-                }
-                UnknownDomainPolicy.BALANCED -> {
-                    val decision = BlockDecision(
-                        blocked = false,
-                        reason = "Unclassified domain (balanced mode)",
-                        category = ClassificationCategory.UNKNOWN
-                    )
-                    blockCache[domain] = decision
-                    decision
+            } else {
+                when (unknownDomainPolicy) {
+                    UnknownDomainPolicy.STRICT -> {
+                        BlockDecision(
+                            blocked = true,
+                            reason = "Unclassified domain (strict mode)",
+                            category = ClassificationCategory.UNKNOWN
+                        )
+                    }
+                    UnknownDomainPolicy.BALANCED -> {
+                        BlockDecision(
+                            blocked = false,
+                            reason = "Unclassified domain (balanced mode)",
+                            category = ClassificationCategory.UNKNOWN
+                        )
+                    }
                 }
             }
+
+            blockCache[domain] = decision
+            if (decision.blocked) {
+                recordBlock(domain, decision)
+            }
+            newDeferred.complete(decision)
+            return decision
+        } catch (e: Exception) {
+            val fallback = BlockDecision(false, "Classification error fallback", ClassificationCategory.UNKNOWN)
+            newDeferred.complete(fallback)
+            return fallback
         } finally {
             pendingClassifications.remove(domain)
         }

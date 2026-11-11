@@ -14,19 +14,22 @@ import javax.inject.Singleton
 class HeuristicDomainClassifier @Inject constructor() {
 
     private val adultTlds = setOf(
-        ".xxx", ".porn", ".sex", ".adult", ".sexy"
+        ".xxx", ".porn", ".sex", ".adult", ".sexy", ".cam", ".tube", ".erotica"
     )
 
     private val strongAdultKeywords = setOf(
-        "porn", "xxx", "xvideo", "xnxx", "xhamster", "redtube",
-        "youporn", "hentai", "milf", "brazzers", "bangbros",
-        "chaturbate", "livejasmin", "stripchat", "camgirl",
-        "onlyfans", "fansly", "manyvids", "pornstar",
-        "spankbang", "tube8", "porntube", "sextube"
+        "porn", "pornhub", "xxx", "xvideo", "xvideos", "xnxx", "xhamster", "redtube",
+        "youporn", "hentai", "milf", "brazzers", "bangbros", "chaturbate", "livejasmin",
+        "stripchat", "camgirl", "onlyfans", "fansly", "manyvids", "pornstar", "spankbang",
+        "tube8", "porntube", "sextube", "eporner", "beeg", "hqporner", "tnaflix", "thumbzilla",
+        "motherless", "txxx", "tubepornclassic", "drtuber", "nuvid", "vporn", "daftsex",
+        "daftporn", "pornone", "bravoteens", "fapello", "heavy-r", "leakgirls", "cam4",
+        "camsoda", "bongacams", "flirt4free", "myfreecams", "porngo", "pornhat", "porn300",
+        "4tube", "cumlouder", "porndoe", "hdporn", "jav", "javhd", "nsfw"
     )
 
     private val weakAdultKeywords = setOf(
-        "nsfw", "nude", "naked", "erotic", "fetish", "bdsm"
+        "nude", "naked", "erotic", "fetish", "bdsm"
     )
 
     private val safeOverrides = setOf(
@@ -37,17 +40,21 @@ class HeuristicDomainClassifier @Inject constructor() {
         "googleapis.com", "gstatic.com", "googleusercontent.com",
         "fbcdn.net", "cdninstagram.com", "twimg.com",
         "cloudflare-dns.com", "one.one.one.one", "dns.google",
+        "firebase.google.com", "fcm.googleapis.com", "push.apple.com",
 
         // Speed Test & Streaming
         "fast.com", "speedtest.net", "ooklaserver.net",
         "netflix.com", "nflxext.com", "nflxvideo.net", "spotify.com", "twitch.tv",
 
-        // Work, Corporate Portal & Microsoft MDM / Intune
+        // Work, Corporate Portal & Microsoft MDM / Intune / Teams / Outlook
         "microsoft.com", "microsoftonline.com", "msauth.net", "msftauth.net",
-        "windows.net", "office.com", "office365.com", "azure.com", "live.com",
+        "windows.net", "office.com", "office365.com", "office.net", "azure.com", "live.com",
         "sharepoint.com", "manage.microsoft.com", "microsoftapp.net",
         "azureedge.net", "trafficmanager.net", "companyportal.microsoft.com",
-        "intuneweb.azurewebsites.net", "teams.microsoft.com", "onedrive.com",
+        "intuneweb.azurewebsites.net", "teams.microsoft.com", "teams.com", "onedrive.com",
+        "outlook.com", "outlook.office.com", "outlook.office365.com",
+        "skype.com", "msgraph.com", "graph.microsoft.com", "live.net",
+        "microsoftedge.com", "msn.com", "bing.com",
 
         // Communication & Productivity
         "zoom.us", "webex.com", "slack.com", "atlassian.net", "jira.com",

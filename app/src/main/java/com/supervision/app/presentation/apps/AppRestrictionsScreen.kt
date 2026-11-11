@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.HourglassBottom
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Card
@@ -51,6 +52,7 @@ fun AppRestrictionsScreen(
     viewModel: AppRestrictionsViewModel
 ) {
     val apps by viewModel.appRestrictions.collectAsState()
+    val isPlanActive by viewModel.isPlanActive.collectAsState()
 
     LazyColumn(
         modifier = Modifier
@@ -66,9 +68,14 @@ fun AppRestrictionsScreen(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Restricted platforms are paused with greyscale indicators. Work and communication essentials remain permanently protected.",
+                text = if (isPlanActive) {
+                    "🔒 Active Commitment Plan: Blocked applications are locked and cannot be manually unblocked until your plan expires. Work essentials remain permanently protected."
+                } else {
+                    "Restricted platforms are paused with greyscale indicators. Work and communication essentials remain permanently protected."
+                },
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = if (isPlanActive) Color(0xFFE57373) else MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = if (isPlanActive) FontWeight.Medium else FontWeight.Normal
             )
         }
 
@@ -76,6 +83,7 @@ fun AppRestrictionsScreen(
             val app = apps[index]
             AppRestrictionCard(
                 app = app,
+                isPlanActive = isPlanActive,
                 onUpdateType = { viewModel.updateRestrictionType(app, it) }
             )
         }
@@ -85,6 +93,7 @@ fun AppRestrictionsScreen(
 @Composable
 private fun AppRestrictionCard(
     app: AppRestriction,
+    isPlanActive: Boolean,
     onUpdateType: (RestrictionType) -> Unit
 ) {
     val isBlocked = app.restrictionType == RestrictionType.COMPLETELY_BLOCKED
@@ -169,13 +178,36 @@ private fun AppRestrictionCard(
             if (!app.isEssential) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    FilterChip(
-                        selected = app.restrictionType == RestrictionType.ALWAYS_ALLOWED,
-                        onClick = { onUpdateType(RestrictionType.ALWAYS_ALLOWED) },
-                        label = { Text("Allowed") }
-                    )
+                    val isRestricted = app.restrictionType != RestrictionType.ALWAYS_ALLOWED
+                    val canUnblock = !isPlanActive || !isRestricted
+
+                    if (canUnblock) {
+                        FilterChip(
+                            selected = app.restrictionType == RestrictionType.ALWAYS_ALLOWED,
+                            onClick = { onUpdateType(RestrictionType.ALWAYS_ALLOWED) },
+                            label = { Text("Allowed") }
+                        )
+                    } else {
+                        // Anti-Tamper: Locked during active protection plan
+                        FilterChip(
+                            selected = false,
+                            onClick = { /* Cannot unblock during active plan */ },
+                            enabled = false,
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = "Plan Locked",
+                                    modifier = Modifier.size(14.dp),
+                                    tint = Color(0xFFEF5350)
+                                )
+                            },
+                            label = { Text("Locked (Plan)", color = Color(0xFFEF5350)) }
+                        )
+                    }
+
                     FilterChip(
                         selected = app.restrictionType == RestrictionType.TIME_LIMITED,
                         onClick = { onUpdateType(RestrictionType.TIME_LIMITED) },

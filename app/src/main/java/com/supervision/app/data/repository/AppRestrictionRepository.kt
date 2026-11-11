@@ -8,6 +8,7 @@ import com.supervision.app.domain.model.RestrictionType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import timber.log.Timber
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -15,13 +16,27 @@ import javax.inject.Singleton
 class AppRestrictionRepository @Inject constructor(
     private val dao: AppRestrictionDao
 ) {
-    fun observeAll(): Flow<List<AppRestriction>> =
-        dao.observeAll().map { entities -> entities.map { it.toDomain() } }
+    private val memoryCache = ConcurrentHashMap<String, AppRestriction>()
 
-    suspend fun getRestriction(packageName: String): AppRestriction? =
-        dao.getByPackageName(packageName)?.toDomain()
+    fun observeAll(): Flow<List<AppRestriction>> =
+        dao.observeAll().map { entities -> 
+            val list = entities.map { it.toDomain() }
+            list.forEach { memoryCache[it.packageName] = it }
+            list
+        }
+
+    suspend fun getRestriction(packageName: String): AppRestriction? {
+        val cached = memoryCache[packageName]
+        if (cached != null) return cached
+        val entity = dao.getByPackageName(packageName)?.toDomain()
+        if (entity != null) {
+            memoryCache[packageName] = entity
+        }
+        return entity
+    }
 
     suspend fun setRestriction(restriction: AppRestriction) {
+        memoryCache[restriction.packageName] = restriction
         dao.insert(restriction.toEntity())
         Timber.d("Set restriction for ${restriction.packageName}: ${restriction.restrictionType}")
     }
@@ -42,8 +57,10 @@ class AppRestrictionRepository @Inject constructor(
         return restriction.restrictionType == RestrictionType.TIME_LIMITED.name
     }
 
-    suspend fun removeRestriction(packageName: String) =
+    suspend fun removeRestriction(packageName: String) {
+        memoryCache.remove(packageName)
         dao.deleteByPackageName(packageName)
+    }
 
     fun observeRestrictedCount(): Flow<Int> = dao.observeRestrictedCount()
 
@@ -81,15 +98,20 @@ class AppRestrictionRepository @Inject constructor(
             val existing = dao.getByPackageName(app.packageName)
             if (existing == null) {
                 dao.insert(app.toEntity())
+                memoryCache[app.packageName] = app
             } else if ((app.packageName == "com.instagram.android" ||
                         app.packageName == "org.telegram.messenger" ||
                         app.packageName == "org.thunderdog.challegram") &&
                         existing.restrictionType != RestrictionType.COMPLETELY_BLOCKED.name) {
                 // Ensure Instagram and Telegram are completely blocked (0 minutes allowed)
                 dao.insert(app.toEntity())
+                memoryCache[app.packageName] = app
             } else if (app.isEssential && (!existing.isEssential || existing.restrictionType != RestrictionType.ALWAYS_ALLOWED.name)) {
                 // Ensure work & essential applications can never be restricted
                 dao.insert(app.toEntity())
+                memoryCache[app.packageName] = app
+            } else {
+                memoryCache[existing.packageName] = existing.toDomain()
             }
         }
     }

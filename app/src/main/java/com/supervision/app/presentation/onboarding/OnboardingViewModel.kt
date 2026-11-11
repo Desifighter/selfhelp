@@ -32,6 +32,7 @@ data class OnboardingUiState(
     val isVpnPermissionGranted: Boolean = false,
     val isUsageStatsGranted: Boolean = false,
     val isOverlayPermissionGranted: Boolean = false,
+    val isBatteryOptimizationIgnored: Boolean = false,
     val selectedProtectionMode: ProtectionMode = ProtectionMode.STANDARD,
     val selectedUnknownPolicy: UnknownDomainPolicy = UnknownDomainPolicy.BALANCED,
     val selectedPlanDurationDays: Int = 30,
@@ -90,11 +91,14 @@ class OnboardingViewModel @Inject constructor(
         )
         val usageGranted = mode == android.app.AppOpsManager.MODE_ALLOWED
         val overlayGranted = android.provider.Settings.canDrawOverlays(context)
+        val powerManager = context.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+        val batteryIgnored = powerManager?.isIgnoringBatteryOptimizations(context.packageName) ?: false
 
         _uiState.value = _uiState.value.copy(
             isVpnPermissionGranted = vpnGranted,
             isUsageStatsGranted = usageGranted,
-            isOverlayPermissionGranted = overlayGranted
+            isOverlayPermissionGranted = overlayGranted,
+            isBatteryOptimizationIgnored = batteryIgnored
         )
     }
 

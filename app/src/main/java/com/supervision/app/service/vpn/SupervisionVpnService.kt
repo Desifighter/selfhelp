@@ -9,6 +9,7 @@ import com.supervision.app.R
 import com.supervision.app.SupervisionApp
 import com.supervision.app.presentation.MainActivity
 import com.supervision.app.data.repository.BlockedRequestRepository
+import com.supervision.app.service.watchdog.WatchdogAlarmReceiver
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -36,6 +37,7 @@ class SupervisionVpnService : VpnService() {
     private var vpnInterface: ParcelFileDescriptor? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var isRunning = false
+    private var isExplicitlyStopped = false
 
     private data class CachedDnsRecord(
         val payload: ByteArray,
@@ -70,35 +72,20 @@ class SupervisionVpnService : VpnService() {
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
         Timber.i("SupervisionVpnService onTaskRemoved — ensuring persistent background execution")
-        try {
-            val restartIntent = Intent(applicationContext, SupervisionVpnService::class.java).apply {
-                action = ACTION_START
-            }
-            val pendingIntent = android.app.PendingIntent.getForegroundService(
-                applicationContext,
-                102,
-                restartIntent,
-                android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_ONE_SHOT
-            )
-            val alarmManager = getSystemService(android.content.Context.ALARM_SERVICE) as? android.app.AlarmManager
-            alarmManager?.setExactAndAllowWhileIdle(
-                android.app.AlarmManager.RTC_WAKEUP,
-                System.currentTimeMillis() + 1000L,
-                pendingIntent
-            )
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to schedule VPN resurrection on task removed")
-        }
+        scheduleResurrectionAlarm()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
+                isExplicitlyStopped = true
                 stopVpn()
                 return START_NOT_STICKY
             }
             else -> {
+                isExplicitlyStopped = false
                 startVpn()
+                WatchdogAlarmReceiver.scheduleNextWatchdog(applicationContext)
                 return START_STICKY
             }
         }
@@ -623,13 +610,49 @@ class SupervisionVpnService : VpnService() {
             .build()
     }
 
+    private fun scheduleResurrectionAlarm() {
+        WatchdogAlarmReceiver.scheduleNextWatchdog(applicationContext)
+        try {
+            val restartIntent = Intent(applicationContext, SupervisionVpnService::class.java).apply {
+                action = ACTION_START
+            }
+            val pendingIntent = android.app.PendingIntent.getForegroundService(
+                applicationContext,
+                102,
+                restartIntent,
+                android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_ONE_SHOT
+            )
+            val alarmManager = getSystemService(android.content.Context.ALARM_SERVICE) as? android.app.AlarmManager
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                alarmManager?.setAndAllowWhileIdle(
+                    android.app.AlarmManager.RTC_WAKEUP,
+                    System.currentTimeMillis() + 1000L,
+                    pendingIntent
+                )
+            } else {
+                alarmManager?.setExact(
+                    android.app.AlarmManager.RTC_WAKEUP,
+                    System.currentTimeMillis() + 1000L,
+                    pendingIntent
+                )
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to schedule VPN resurrection alarm")
+        }
+    }
+
     override fun onDestroy() {
+        if (!isExplicitlyStopped) {
+            Timber.w("SupervisionVpnService destroyed unexpectedly! Scheduling resurrection...")
+            scheduleResurrectionAlarm()
+        }
         stopVpn()
         super.onDestroy()
     }
 
     override fun onRevoke() {
         Timber.w("VPN permission revoked")
+        isExplicitlyStopped = true
         stopVpn()
         super.onRevoke()
     }

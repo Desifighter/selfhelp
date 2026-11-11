@@ -7,6 +7,7 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.supervision.app.service.watchdog.ServiceWatchdogWorker
+import com.supervision.app.service.watchdog.WatchdogAlarmReceiver
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
@@ -23,6 +24,10 @@ class SupervisionApp : Application() {
 
     private fun setupWatchdog() {
         try {
+            // 1. High-frequency AlarmManager watchdog
+            WatchdogAlarmReceiver.scheduleNextWatchdog(this)
+
+            // 2. Fallback WorkManager periodic worker
             val watchdogRequest = PeriodicWorkRequestBuilder<ServiceWatchdogWorker>(
                 15, TimeUnit.MINUTES
             ).build()
@@ -32,7 +37,7 @@ class SupervisionApp : Application() {
                 ExistingPeriodicWorkPolicy.KEEP,
                 watchdogRequest
             )
-            Timber.i("Scheduled SupervisionServiceWatchdog periodic worker")
+            Timber.i("Scheduled SupervisionServiceWatchdog periodic worker & alarm watchdog")
         } catch (e: Exception) {
             Timber.e(e, "Failed to schedule SupervisionServiceWatchdog")
         }

@@ -6,6 +6,7 @@ import android.content.Intent
 import com.supervision.app.data.repository.ProtectionPlanRepository
 import com.supervision.app.service.monitoring.UsageMonitoringService
 import com.supervision.app.service.vpn.SupervisionVpnService
+import com.supervision.app.service.watchdog.WatchdogAlarmReceiver
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -45,6 +46,8 @@ class BootCompletedReceiver : BroadcastReceiver() {
                         setAction(UsageMonitoringService.ACTION_START)
                     }
                     context.startForegroundService(monitoringIntent)
+
+                    WatchdogAlarmReceiver.scheduleNextWatchdog(context)
 
                     Timber.i("Protection services restarted after boot")
                 } else {

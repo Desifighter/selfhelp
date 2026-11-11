@@ -123,6 +123,7 @@ fun OnboardingScreen(
                         isVpnGranted = uiState.isVpnPermissionGranted,
                         isUsageGranted = uiState.isUsageStatsGranted,
                         isOverlayGranted = uiState.isOverlayPermissionGranted,
+                        isBatteryIgnored = uiState.isBatteryOptimizationIgnored,
                         onRequestVpn = {
                             val intent = VpnService.prepare(context)
                             if (intent != null) {
@@ -140,6 +141,17 @@ fun OnboardingScreen(
                                 Uri.parse("package:${context.packageName}")
                             )
                             context.startActivity(intent)
+                        },
+                        onRequestBatteryOptimization = {
+                            try {
+                                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                    data = Uri.parse("package:${context.packageName}")
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                context.startActivity(intent)
+                            }
                         }
                     )
                     2 -> ProtectionModeStep(
@@ -232,9 +244,11 @@ private fun PermissionsStep(
     isVpnGranted: Boolean,
     isUsageGranted: Boolean,
     isOverlayGranted: Boolean,
+    isBatteryIgnored: Boolean,
     onRequestVpn: () -> Unit,
     onRequestUsage: () -> Unit,
-    onRequestOverlay: () -> Unit
+    onRequestOverlay: () -> Unit,
+    onRequestBatteryOptimization: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Text(
@@ -243,7 +257,7 @@ private fun PermissionsStep(
             fontWeight = FontWeight.Bold
         )
         Text(
-            text = "Supervision runs completely offline and on-device. These permissions are required for filtering, limit enforcement, and instant blocking.",
+            text = "Supervision runs completely offline and on-device. These permissions are required for filtering, limit enforcement, and persistent 24/7 background blocking.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -276,6 +290,16 @@ private fun PermissionsStep(
             isGranted = isOverlayGranted,
             icon = Icons.Default.Shield,
             onRequest = onRequestOverlay
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        PermissionCard(
+            title = "Unrestricted Battery (Continuous Background Protection)",
+            description = "Exempts Supervision from Motorola & Android battery sleeping so limits and blocking stay active 24/7 without needing the app to be opened.",
+            isGranted = isBatteryIgnored,
+            icon = Icons.Default.Lock,
+            onRequest = onRequestBatteryOptimization
         )
     }
 }

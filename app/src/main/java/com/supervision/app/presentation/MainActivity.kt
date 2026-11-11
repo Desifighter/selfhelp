@@ -22,6 +22,7 @@ import com.supervision.app.presentation.navigation.Screen
 import com.supervision.app.presentation.theme.SupervisionTheme
 import com.supervision.app.service.monitoring.UsageMonitoringService
 import com.supervision.app.service.vpn.SupervisionVpnService
+import com.supervision.app.service.watchdog.WatchdogAlarmReceiver
 import dagger.hilt.android.AndroidEntryPoint
 import timber.log.Timber
 import javax.inject.Inject
@@ -86,6 +87,8 @@ class MainActivity : ComponentActivity() {
                 startService(monitoringIntent)
             }
             Timber.i("Started UsageMonitoringService from MainActivity")
+
+            WatchdogAlarmReceiver.scheduleNextWatchdog(this)
         } catch (e: Exception) {
             Timber.e(e, "Failed to start background services from MainActivity")
         }

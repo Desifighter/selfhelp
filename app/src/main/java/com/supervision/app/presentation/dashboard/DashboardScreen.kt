@@ -64,6 +64,11 @@ fun DashboardScreen(
     val isAccessibilityEnabled = remember(context) {
         com.supervision.app.service.accessibility.AccessibilityHelper.isAccessibilityEnabled(context)
     }
+    val isDeviceAdminActive = remember(context) {
+        val dpm = context.getSystemService(android.content.Context.DEVICE_POLICY_SERVICE) as? android.app.admin.DevicePolicyManager
+        val adminComponent = android.content.ComponentName(context, com.supervision.app.service.admin.SupervisionDeviceAdminReceiver::class.java)
+        dpm?.isAdminActive(adminComponent) ?: false
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -204,6 +209,52 @@ fun DashboardScreen(
                                 text = "Closes restricted apps in 0ms so they never linger in recent apps. Tap to turn on Supervision in Accessibility.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!isDeviceAdminActive) {
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            val adminComponent = android.content.ComponentName(context, com.supervision.app.service.admin.SupervisionDeviceAdminReceiver::class.java)
+                            val intent = Intent(android.app.admin.DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+                                putExtra(android.app.admin.DevicePolicyManager.EXTRA_DEVICE_ADMIN, adminComponent)
+                                putExtra(android.app.admin.DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Protects Supervision from uninstallation and tampering while your commitment plan is active.")
+                            }
+                            context.startActivity(intent)
+                        },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Action Required: Uninstall Protection (Device Admin)",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Locks down the app so it cannot be uninstalled while your plan is active. Tap here to activate.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.9f)
                             )
                         }
                     }

@@ -4,6 +4,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import com.supervision.app.R
 import com.supervision.app.SupervisionApp
@@ -33,21 +34,24 @@ class AppBlocker @Inject constructor(
         val now = System.currentTimeMillis()
         val last = lastBlockTime[packageName] ?: 0L
 
-        // Always ensure the fullscreen Layer-2038 overlay is visible immediately
-        // (covers Freeform, PIP, and Multi-Window instantly, even during debounce)
-        blockingOverlayManager.showOverlay(packageName, appName, reason)
+        val hasOverlayPermission = Settings.canDrawOverlays(context)
+
+        // 1. Show Layer 2038 overlay (covers Fullscreen, Freeform, PIP, and Multi-Window instantly)
+        if (hasOverlayPermission) {
+            blockingOverlayManager.showOverlay(packageName, appName, reason)
+        }
 
         if (now - last < 2000L) {
-            // Debounce rapid re-triggers of Activity and Home intent within 2 seconds
+            // Debounce rapid re-triggers within 2 seconds
             return
         }
         lastBlockTime[packageName] = now
-        Timber.i("Enforcing blocking overlay & task eviction for: $packageName")
+        Timber.i("Enforcing blocking & task eviction for: $packageName")
 
-        // 1. Send HOME intent to dismiss restricted application from foreground immediately
+        // 2. Send HOME intent to dismiss restricted application from foreground immediately
         val homeIntent = Intent(Intent.ACTION_MAIN).apply {
             addCategory(Intent.CATEGORY_HOME)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         try {
             context.startActivity(homeIntent)
@@ -55,42 +59,44 @@ class AppBlocker @Inject constructor(
             Timber.e(e, "Failed to navigate to HOME")
         }
 
-        // 2. Launch full-screen RestrictionActivity overlay
-        val blockIntent = Intent(context, RestrictionActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            putExtra(RestrictionActivity.EXTRA_BLOCKED_PACKAGE, packageName)
-            putExtra(RestrictionActivity.EXTRA_RESTRICTION_TYPE, "APP_BLOCKED")
-            putExtra(RestrictionActivity.EXTRA_CATEGORY, reason)
-        }
-        try {
-            context.startActivity(blockIntent)
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to start RestrictionActivity directly")
-        }
+        // 3. Fallback: Only launch full-screen RestrictionActivity if SYSTEM_ALERT_WINDOW is not available
+        // to prevent stacking multiple duplicate "Return to Home" screens
+        if (!hasOverlayPermission) {
+            val blockIntent = Intent(context, RestrictionActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                putExtra(RestrictionActivity.EXTRA_BLOCKED_PACKAGE, packageName)
+                putExtra(RestrictionActivity.EXTRA_RESTRICTION_TYPE, "APP_BLOCKED")
+                putExtra(RestrictionActivity.EXTRA_CATEGORY, reason)
+            }
+            try {
+                context.startActivity(blockIntent)
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to start RestrictionActivity directly")
+            }
 
-        // 3. Post fullScreenIntent high-priority notification to guarantee display over restricted app on Android 14/15/16
-        try {
-            val pendingIntent = PendingIntent.getActivity(
-                context,
-                packageName.hashCode(),
-                blockIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
+            try {
+                val pendingIntent = PendingIntent.getActivity(
+                    context,
+                    packageName.hashCode(),
+                    blockIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
 
-            val notification = NotificationCompat.Builder(context, SupervisionApp.CHANNEL_ALERTS)
-                .setSmallIcon(R.drawable.ic_shield)
-                .setContentTitle("Access Restricted")
-                .setContentText("$appName is restricted under your active plan")
-                .setPriority(NotificationCompat.PRIORITY_MAX)
-                .setCategory(NotificationCompat.CATEGORY_ALARM)
-                .setFullScreenIntent(pendingIntent, true)
-                .setAutoCancel(true)
-                .build()
+                val notification = NotificationCompat.Builder(context, SupervisionApp.CHANNEL_ALERTS)
+                    .setSmallIcon(R.drawable.ic_shield)
+                    .setContentTitle("Access Restricted")
+                    .setContentText("$appName is restricted under your active plan")
+                    .setPriority(NotificationCompat.PRIORITY_MAX)
+                    .setCategory(NotificationCompat.CATEGORY_ALARM)
+                    .setFullScreenIntent(pendingIntent, true)
+                    .setAutoCancel(true)
+                    .build()
 
-            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.notify(packageName.hashCode(), notification)
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to send fullScreenIntent notification")
+                val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                notificationManager.notify(packageName.hashCode(), notification)
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to send fullScreenIntent notification")
+            }
         }
 
         // 4. Forcefully kill the background process once dismissed from foreground

@@ -174,27 +174,35 @@ class UsageMonitoringService : Service() {
         }
 
         if (singleLatestActivePkg != null) {
-            lastForegroundApp = singleLatestActivePkg
-            visiblePackages.add(singleLatestActivePkg!!)
+            val lastDismissed = blockingOverlayManager.getLastDismissedTime(singleLatestActivePkg!!)
+            if (singleLatestResumeTime > lastDismissed) {
+                lastForegroundApp = singleLatestActivePkg
+                visiblePackages.add(singleLatestActivePkg!!)
+            }
         }
 
         // Add any package whose latest resumed event has not been followed by a stopped event
+        // and which occurred AFTER any recent user dismissal
         for ((pkg, resumeTime) in lastResumedTimes) {
             val stopTime = lastStoppedTimes[pkg] ?: 0L
-            if (resumeTime > stopTime && (now - resumeTime) < 600_000L) {
+            val lastDismissed = blockingOverlayManager.getLastDismissedTime(pkg)
+            if (resumeTime > stopTime && resumeTime > lastDismissed && (now - resumeTime) < 600_000L) {
                 visiblePackages.add(pkg)
             }
         }
 
-        // 2b. Query UsageStats for recent activity (catches Freeform / Floating windows where lastTimeVisible is recent)
+        // 2b. Query UsageStats for recent activity (catches Freeform / Floating windows)
+        // Only consider timestamps that occurred strictly AFTER the user last dismissed the block overlay
         try {
             val stats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_BEST, now - 15_000L, now)
             for (stat in stats) {
-                if (stat.packageName != packageName) {
-                    val isRecentlyVisible = (now - stat.lastTimeVisible) < 4_000L
-                    val isRecentlyUsed = (now - stat.lastTimeUsed) < 4_000L
+                val pkg = stat.packageName ?: continue
+                if (pkg != packageName) {
+                    val lastDismissed = blockingOverlayManager.getLastDismissedTime(pkg)
+                    val isRecentlyVisible = stat.lastTimeVisible > lastDismissed && (now - stat.lastTimeVisible) < 2_500L
+                    val isRecentlyUsed = stat.lastTimeUsed > lastDismissed && (now - stat.lastTimeUsed) < 2_500L
                     if (isRecentlyVisible || isRecentlyUsed) {
-                        visiblePackages.add(stat.packageName)
+                        visiblePackages.add(pkg)
                     }
                 }
             }

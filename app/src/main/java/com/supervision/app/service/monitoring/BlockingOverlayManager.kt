@@ -45,6 +45,9 @@ class BlockingOverlayManager @Inject constructor(
     private var currentBlockedPackage: String? = null
 
     private var subtitleTextView: TextView? = null
+    private val lastDismissedTimes = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
+    fun getLastDismissedTime(packageName: String): Long = lastDismissedTimes[packageName] ?: 0L
 
     fun showOverlay(packageName: String, appName: String, reason: String = "Restricted under active self-control plan") {
         if (!Settings.canDrawOverlays(context)) {
@@ -220,12 +223,15 @@ class BlockingOverlayManager @Inject constructor(
 
     private fun handleDismissAndExit() {
         val targetPkg = currentBlockedPackage
+        if (!targetPkg.isNullOrBlank()) {
+            lastDismissedTimes[targetPkg] = System.currentTimeMillis()
+        }
         dismissOverlay()
 
         // 1. Navigate to HOME
         val homeIntent = Intent(Intent.ACTION_MAIN).apply {
             addCategory(Intent.CATEGORY_HOME)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         try {
             context.startActivity(homeIntent)

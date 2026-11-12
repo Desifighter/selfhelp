@@ -18,19 +18,31 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class AppBlocker @Inject constructor() {
+class AppBlocker @Inject constructor(
+    private val blockingOverlayManager: BlockingOverlayManager
+) {
 
     private val lastBlockTime = ConcurrentHashMap<String, Long>()
 
-    fun blockApp(context: Context, packageName: String) {
+    fun blockApp(
+        context: Context,
+        packageName: String,
+        appName: String = packageName,
+        reason: String = "Social Media / Screen Time Limit"
+    ) {
         val now = System.currentTimeMillis()
         val last = lastBlockTime[packageName] ?: 0L
+
+        // Always ensure the fullscreen Layer-2038 overlay is visible immediately
+        // (covers Freeform, PIP, and Multi-Window instantly, even during debounce)
+        blockingOverlayManager.showOverlay(packageName, appName, reason)
+
         if (now - last < 2000L) {
-            // Debounce rapid re-triggers within 2 seconds
+            // Debounce rapid re-triggers of Activity and Home intent within 2 seconds
             return
         }
         lastBlockTime[packageName] = now
-        Timber.i("Enforcing blocking overlay for: $packageName")
+        Timber.i("Enforcing blocking overlay & task eviction for: $packageName")
 
         // 1. Send HOME intent to dismiss restricted application from foreground immediately
         val homeIntent = Intent(Intent.ACTION_MAIN).apply {
@@ -48,7 +60,7 @@ class AppBlocker @Inject constructor() {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra(RestrictionActivity.EXTRA_BLOCKED_PACKAGE, packageName)
             putExtra(RestrictionActivity.EXTRA_RESTRICTION_TYPE, "APP_BLOCKED")
-            putExtra(RestrictionActivity.EXTRA_CATEGORY, "Social Media / Screen Time Limit")
+            putExtra(RestrictionActivity.EXTRA_CATEGORY, reason)
         }
         try {
             context.startActivity(blockIntent)
@@ -68,7 +80,7 @@ class AppBlocker @Inject constructor() {
             val notification = NotificationCompat.Builder(context, SupervisionApp.CHANNEL_ALERTS)
                 .setSmallIcon(R.drawable.ic_shield)
                 .setContentTitle("Access Restricted")
-                .setContentText("$packageName is restricted under your active plan")
+                .setContentText("$appName is restricted under your active plan")
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(NotificationCompat.CATEGORY_ALARM)
                 .setFullScreenIntent(pendingIntent, true)
@@ -101,5 +113,3 @@ class AppBlocker @Inject constructor() {
         }
     }
 }
-
-

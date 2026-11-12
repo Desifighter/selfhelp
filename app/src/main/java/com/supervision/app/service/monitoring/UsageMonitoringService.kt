@@ -41,6 +41,9 @@ class UsageMonitoringService : Service() {
     @Inject
     lateinit var appBlocker: AppBlocker
 
+    @Inject
+    lateinit var blockingOverlayManager: BlockingOverlayManager
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var isRunning = false
     private var isExplicitlyStopped = false
@@ -139,117 +142,131 @@ class UsageMonitoringService : Service() {
             lastDailyUsageSyncTime = now
         }
 
-        // 2. Real-time active foreground app detection (queries only recent 15s window for instant, O(1) response)
-        val recentEvents = usageStatsManager.queryEvents(now - 15_000L, now)
+        // 2. Comprehensive active/visible packages detection (supporting Fullscreen, Freeform, Multi-Window & PIP)
+        val visiblePackages = mutableSetOf<String>()
+
+        // 2a. Query recent UsageEvents (last 20 seconds) to find activities that are resumed and NOT stopped
+        val recentEvents = usageStatsManager.queryEvents(now - 20_000L, now)
         val event = UsageEvents.Event()
-        var latestActivePkg: String? = null
-        var latestResumeTime = 0L
+        val lastResumedTimes = mutableMapOf<String, Long>()
+        val lastStoppedTimes = mutableMapOf<String, Long>()
+        var singleLatestActivePkg: String? = null
+        var singleLatestResumeTime = 0L
 
         while (recentEvents.hasNextEvent()) {
             recentEvents.getNextEvent(event)
             val pkg = event.packageName ?: continue
             when (event.eventType) {
                 UsageEvents.Event.ACTIVITY_RESUMED -> {
-                    if (event.timeStamp >= latestResumeTime) {
-                        latestResumeTime = event.timeStamp
-                        latestActivePkg = pkg
+                    lastResumedTimes[pkg] = event.timeStamp
+                    if (event.timeStamp >= singleLatestResumeTime) {
+                        singleLatestResumeTime = event.timeStamp
+                        singleLatestActivePkg = pkg
                     }
                 }
-                UsageEvents.Event.ACTIVITY_PAUSED, UsageEvents.Event.ACTIVITY_STOPPED -> {
-                    if (pkg == latestActivePkg && event.timeStamp >= latestResumeTime) {
-                        latestActivePkg = null
-                    }
-                }
-            }
-        }
-
-        if (latestActivePkg != null) {
-            lastForegroundApp = latestActivePkg
-        }
-
-        // Fallback: If no recent event in 15s window, query UsageStats for the most recently active app
-        val activeApp = lastForegroundApp ?: run {
-            val stats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, now - 60_000L, now)
-            stats.filter { it.packageName != packageName }
-                .maxByOrNull { it.lastTimeUsed }
-                ?.packageName
-        }
-
-        // 3. Enforce restriction on currently foreground application
-        if (activeApp != null && activeApp != packageName) {
-            val restriction = appRestrictionRepository.getRestriction(activeApp)
-            if (restriction != null) {
-                when (restriction.restrictionType) {
-                    RestrictionType.COMPLETELY_BLOCKED -> {
-                        if (!restriction.isEssential) {
-                            Timber.i("Blocked app detected: $activeApp")
-                            appBlocker.blockApp(this@UsageMonitoringService, activeApp)
-                        }
-                    }
-                    RestrictionType.TIME_LIMITED -> {
-                        val limit = restriction.dailyLimitMinutes ?: Int.MAX_VALUE
-                        val usedMinutes = dailyUsageMinutesCache[activeApp] ?: 0
-                        val remaining = limit - usedMinutes
-
-                        if (remaining <= 0) {
-                            Timber.i("Time limit reached for: $activeApp ($usedMinutes/$limit min)")
-                            appBlocker.blockApp(this@UsageMonitoringService, activeApp)
-                        } else if (remaining <= 5 && !warnedPackages.contains(activeApp)) {
-                            warnedPackages.add(activeApp)
-                            showTimeWarningNotification(restriction.appName, remaining)
-                        }
-                    }
-                    RestrictionType.ALWAYS_ALLOWED -> {}
-                }
-            }
-        }
-
-        // 4. Scan running processes to catch Freeform floating windows and multi-window mode
-        val am = getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
-        am?.runningAppProcesses?.forEach { proc ->
-            if (proc.pkgList != null && proc.importance <= android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE) {
-                for (pkg in proc.pkgList) {
-                    if (pkg != packageName) {
-                        val restriction = appRestrictionRepository.getRestriction(pkg)
-                        if (restriction != null) {
-                            when (restriction.restrictionType) {
-                                RestrictionType.COMPLETELY_BLOCKED -> {
-                                    if (!restriction.isEssential) {
-                                        Timber.i("Visible process (Freeform window) detected for blocked app: $pkg")
-                                        appBlocker.blockApp(this@UsageMonitoringService, pkg)
-                                    }
-                                }
-                                RestrictionType.TIME_LIMITED -> {
-                                    val limit = restriction.dailyLimitMinutes ?: Int.MAX_VALUE
-                                    val usedMinutes = dailyUsageMinutesCache[pkg] ?: 0
-                                    if (usedMinutes >= limit) {
-                                        Timber.i("Visible process (Freeform window) limit reached for: $pkg ($usedMinutes/$limit min)")
-                                        appBlocker.blockApp(this@UsageMonitoringService, pkg)
-                                    }
-                                }
-                                RestrictionType.ALWAYS_ALLOWED -> {}
-                            }
-                        }
+                UsageEvents.Event.ACTIVITY_STOPPED -> {
+                    lastStoppedTimes[pkg] = event.timeStamp
+                    if (pkg == singleLatestActivePkg && event.timeStamp >= singleLatestResumeTime) {
+                        singleLatestActivePkg = null
                     }
                 }
             }
         }
 
-        // 5. Proactively terminate background processes of completely blocked apps (e.g. Instagram, Telegram)
-        am?.runningAppProcesses?.forEach { proc ->
-            if (proc.pkgList != null && proc.importance > android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_VISIBLE) {
-                for (pkg in proc.pkgList) {
-                    if (pkg != packageName) {
-                        val restriction = appRestrictionRepository.getRestriction(pkg)
-                        if (restriction?.restrictionType == RestrictionType.COMPLETELY_BLOCKED && !restriction.isEssential) {
-                            try {
-                                am.killBackgroundProcesses(pkg)
-                            } catch (_: Exception) {}
-                        }
+        if (singleLatestActivePkg != null) {
+            lastForegroundApp = singleLatestActivePkg
+            visiblePackages.add(singleLatestActivePkg!!)
+        }
+
+        // Add any package whose latest resumed event has not been followed by a stopped event
+        for ((pkg, resumeTime) in lastResumedTimes) {
+            val stopTime = lastStoppedTimes[pkg] ?: 0L
+            if (resumeTime > stopTime && (now - resumeTime) < 600_000L) {
+                visiblePackages.add(pkg)
+            }
+        }
+
+        // 2b. Query UsageStats for recent activity (catches Freeform / Floating windows where lastTimeVisible is recent)
+        try {
+            val stats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_BEST, now - 15_000L, now)
+            for (stat in stats) {
+                if (stat.packageName != packageName) {
+                    val isRecentlyVisible = (now - stat.lastTimeVisible) < 4_000L
+                    val isRecentlyUsed = (now - stat.lastTimeUsed) < 4_000L
+                    if (isRecentlyVisible || isRecentlyUsed) {
+                        visiblePackages.add(stat.packageName)
                     }
                 }
             }
+        } catch (e: Exception) {
+            Timber.e(e, "Error querying usage stats for visible packages")
         }
+
+        // Fallback: If no visible packages detected from events or stats, use last known foreground app
+        if (visiblePackages.isEmpty() && lastForegroundApp != null) {
+            visiblePackages.add(lastForegroundApp!!)
+        }
+
+        // 3. Evaluate and enforce restrictions on all currently visible packages
+        var hasActiveBlockedPackage = false
+
+        for (pkg in visiblePackages) {
+            if (pkg == packageName) continue
+
+            val restriction = appRestrictionRepository.getRestriction(pkg) ?: continue
+            when (restriction.restrictionType) {
+                RestrictionType.COMPLETELY_BLOCKED -> {
+                    if (!restriction.isEssential) {
+                        Timber.i("Restricted package active/visible (Fullscreen or Freeform): $pkg")
+                        hasActiveBlockedPackage = true
+                        appBlocker.blockApp(
+                            context = this@UsageMonitoringService,
+                            packageName = pkg,
+                            appName = restriction.appName,
+                            reason = "Completely blocked under active plan"
+                        )
+                    }
+                }
+                RestrictionType.TIME_LIMITED -> {
+                    val limit = restriction.dailyLimitMinutes ?: Int.MAX_VALUE
+                    val usedMinutes = dailyUsageMinutesCache[pkg] ?: 0
+                    val remaining = limit - usedMinutes
+
+                    if (remaining <= 0) {
+                        Timber.i("Time limit exceeded for active/visible package: $pkg ($usedMinutes/$limit min)")
+                        hasActiveBlockedPackage = true
+                        appBlocker.blockApp(
+                            context = this@UsageMonitoringService,
+                            packageName = pkg,
+                            appName = restriction.appName,
+                            reason = "Daily limit of $limit min exceeded"
+                        )
+                    } else if (remaining <= 5 && !warnedPackages.contains(pkg)) {
+                        warnedPackages.add(pkg)
+                        showTimeWarningNotification(restriction.appName, remaining)
+                    }
+                }
+                RestrictionType.ALWAYS_ALLOWED -> {
+                    // Essential or user-whitelisted (e.g. Teams, Outlook, IRCTC)
+                }
+            }
+        }
+
+        // 4. Auto-dismiss overlay if no blocked package is visible on screen
+        if (!hasActiveBlockedPackage && blockingOverlayManager.isShowing()) {
+            blockingOverlayManager.dismissOverlay()
+        }
+
+        // 5. Proactively terminate background processes of completely blocked apps
+        try {
+            val am = getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
+            val blockedApps = appRestrictionRepository.getBlockedApps()
+            for (blocked in blockedApps) {
+                if (!blocked.isEssential && !visiblePackages.contains(blocked.packageName)) {
+                    am?.killBackgroundProcesses(blocked.packageName)
+                }
+            }
+        } catch (_: Exception) {}
     }
 
     private suspend fun syncDailyUsageStats(usageStatsManager: UsageStatsManager, today: LocalDate, now: Long) {
@@ -385,6 +402,7 @@ class UsageMonitoringService : Service() {
             Timber.w("UsageMonitoringService destroyed unexpectedly! Scheduling resurrection...")
             scheduleResurrectionAlarm()
         }
+        blockingOverlayManager.dismissOverlay()
         stopMonitoring()
         super.onDestroy()
     }

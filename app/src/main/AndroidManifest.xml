@@ -62,7 +62,8 @@
             android:exported="false"
             android:theme="@style/Theme.Supervision.Restriction"
             android:excludeFromRecents="true"
-            android:launchMode="singleTop"
+            android:launchMode="singleTask"
+            android:resizeableActivity="false"
             android:taskAffinity="" />
 
         <!-- VPN Service -->

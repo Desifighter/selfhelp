@@ -61,9 +61,6 @@ fun DashboardScreen(
         val pm = context.getSystemService(android.content.Context.POWER_SERVICE) as? android.os.PowerManager
         pm?.isIgnoringBatteryOptimizations(context.packageName) ?: true
     }
-    val isAccessibilityEnabled = remember(context) {
-        com.supervision.app.service.accessibility.AccessibilityHelper.isAccessibilityEnabled(context)
-    }
     val isDeviceAdminActive = remember(context) {
         val dpm = context.getSystemService(android.content.Context.DEVICE_POLICY_SERVICE) as? android.app.admin.DevicePolicyManager
         val adminComponent = android.content.ComponentName(context, com.supervision.app.service.admin.SupervisionDeviceAdminReceiver::class.java)
@@ -167,48 +164,6 @@ fun DashboardScreen(
                                 text = "Motorola battery management may pause background blocking. Tap here to allow Unrestricted background activity.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.9f)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        if (!isAccessibilityEnabled) {
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                            context.startActivity(intent)
-                        },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Shield,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(32.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Instant Blocker (Accessibility)",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Closes restricted apps in 0ms so they never linger in recent apps. Tap to turn on Supervision in Accessibility.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f)
                             )
                         }
                     }

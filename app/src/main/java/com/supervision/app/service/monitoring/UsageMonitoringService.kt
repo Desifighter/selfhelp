@@ -52,6 +52,8 @@ class UsageMonitoringService : Service() {
     // Performance caches to eliminate CPU spikes, GC pressure, and battery drain
     private var lastForegroundApp: String? = null
     private var lastDailyUsageSyncTime = 0L
+    private var lastEventQueryTime = 0L
+    private val activeResumedPackages = ConcurrentHashMap<String, Long>()
     private val appNameCache = ConcurrentHashMap<String, String>()
     private val dailyUsageMinutesCache = ConcurrentHashMap<String, Int>()
 
@@ -145,62 +147,47 @@ class UsageMonitoringService : Service() {
         // 2. Comprehensive active/visible packages detection (supporting Fullscreen, Freeform, Multi-Window & PIP)
         val visiblePackages = mutableSetOf<String>()
 
-        // 2a. Query recent UsageEvents (last 20 seconds) to find activities that are resumed and NOT stopped
-        val recentEvents = usageStatsManager.queryEvents(now - 20_000L, now)
+        // 2a. Query UsageEvents since last check (or last 60 seconds on startup)
+        val queryStart = if (lastEventQueryTime > 0) (lastEventQueryTime - 1000L) else (now - 60_000L)
+        val recentEvents = usageStatsManager.queryEvents(queryStart, now)
         val event = UsageEvents.Event()
-        val lastResumedTimes = mutableMapOf<String, Long>()
-        val lastStoppedTimes = mutableMapOf<String, Long>()
-        var singleLatestActivePkg: String? = null
-        var singleLatestResumeTime = 0L
+        var maxEventTime = lastEventQueryTime
 
         while (recentEvents.hasNextEvent()) {
             recentEvents.getNextEvent(event)
             val pkg = event.packageName ?: continue
+            if (event.timeStamp > maxEventTime) {
+                maxEventTime = event.timeStamp
+            }
             when (event.eventType) {
                 UsageEvents.Event.ACTIVITY_RESUMED -> {
-                    lastResumedTimes[pkg] = event.timeStamp
-                    if (event.timeStamp >= singleLatestResumeTime) {
-                        singleLatestResumeTime = event.timeStamp
-                        singleLatestActivePkg = pkg
-                    }
+                    activeResumedPackages[pkg] = event.timeStamp
+                    lastForegroundApp = pkg
                 }
                 UsageEvents.Event.ACTIVITY_STOPPED -> {
-                    lastStoppedTimes[pkg] = event.timeStamp
-                    if (pkg == singleLatestActivePkg && event.timeStamp >= singleLatestResumeTime) {
-                        singleLatestActivePkg = null
-                    }
+                    activeResumedPackages.remove(pkg)
                 }
             }
         }
-
-        if (singleLatestActivePkg != null) {
-            val lastDismissed = blockingOverlayManager.getLastDismissedTime(singleLatestActivePkg!!)
-            if (singleLatestResumeTime > lastDismissed) {
-                lastForegroundApp = singleLatestActivePkg
-                visiblePackages.add(singleLatestActivePkg!!)
-            }
+        if (maxEventTime > lastEventQueryTime) {
+            lastEventQueryTime = maxEventTime
         }
 
-        // Add any package whose latest resumed event has not been followed by a stopped event
-        // and which occurred AFTER any recent user dismissal
-        for ((pkg, resumeTime) in lastResumedTimes) {
-            val stopTime = lastStoppedTimes[pkg] ?: 0L
-            val lastDismissed = blockingOverlayManager.getLastDismissedTime(pkg)
-            if (resumeTime > stopTime && resumeTime > lastDismissed && (now - resumeTime) < 600_000L) {
+        // Add all packages currently in resumed state that are not in dismiss cooldown
+        for ((pkg, _) in activeResumedPackages) {
+            if (pkg != packageName && !blockingOverlayManager.isDismissCooldownActive(pkg)) {
                 visiblePackages.add(pkg)
             }
         }
 
         // 2b. Query UsageStats for recent activity (catches Freeform / Floating windows)
-        // Only consider timestamps that occurred strictly AFTER the user last dismissed the block overlay
         try {
-            val stats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_BEST, now - 15_000L, now)
+            val stats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_BEST, now - 30_000L, now)
             for (stat in stats) {
                 val pkg = stat.packageName ?: continue
-                if (pkg != packageName) {
-                    val lastDismissed = blockingOverlayManager.getLastDismissedTime(pkg)
-                    val isRecentlyVisible = stat.lastTimeVisible > lastDismissed && (now - stat.lastTimeVisible) < 2_500L
-                    val isRecentlyUsed = stat.lastTimeUsed > lastDismissed && (now - stat.lastTimeUsed) < 2_500L
+                if (pkg != packageName && !blockingOverlayManager.isDismissCooldownActive(pkg)) {
+                    val isRecentlyVisible = (now - stat.lastTimeVisible) < 8_000L
+                    val isRecentlyUsed = (now - stat.lastTimeUsed) < 8_000L
                     if (isRecentlyVisible || isRecentlyUsed) {
                         visiblePackages.add(pkg)
                     }
@@ -210,9 +197,11 @@ class UsageMonitoringService : Service() {
             Timber.e(e, "Error querying usage stats for visible packages")
         }
 
-        // Fallback: If no visible packages detected from events or stats, use last known foreground app
+        // Fallback: If no visible packages detected from events or stats, use last known foreground app if not in cooldown
         if (visiblePackages.isEmpty() && lastForegroundApp != null) {
-            visiblePackages.add(lastForegroundApp!!)
+            if (!blockingOverlayManager.isDismissCooldownActive(lastForegroundApp!!)) {
+                visiblePackages.add(lastForegroundApp!!)
+            }
         }
 
         // 3. Evaluate and enforce restrictions on all currently visible packages
@@ -339,33 +328,6 @@ class UsageMonitoringService : Service() {
 
     private fun scheduleResurrectionAlarm() {
         WatchdogAlarmReceiver.scheduleNextWatchdog(applicationContext)
-        try {
-            val restartIntent = Intent(applicationContext, UsageMonitoringService::class.java).apply {
-                action = ACTION_START
-            }
-            val pendingIntent = PendingIntent.getForegroundService(
-                applicationContext,
-                101,
-                restartIntent,
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_ONE_SHOT
-            )
-            val alarmManager = getSystemService(Context.ALARM_SERVICE) as? AlarmManager
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager?.setAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    System.currentTimeMillis() + 1000L,
-                    pendingIntent
-                )
-            } else {
-                alarmManager?.setExact(
-                    AlarmManager.RTC_WAKEUP,
-                    System.currentTimeMillis() + 1000L,
-                    pendingIntent
-                )
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to schedule service resurrection alarm")
-        }
     }
 
     private fun stopMonitoring() {

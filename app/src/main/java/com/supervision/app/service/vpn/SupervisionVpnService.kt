@@ -1,7 +1,10 @@
 package com.supervision.app.service.vpn
 
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.Network
 import android.net.VpnService
 import android.os.ParcelFileDescriptor
 import androidx.core.app.NotificationCompat
@@ -38,6 +41,7 @@ class SupervisionVpnService : VpnService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var isRunning = false
     private var isExplicitlyStopped = false
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     private data class CachedDnsRecord(
         val payload: ByteArray,
@@ -91,6 +95,57 @@ class SupervisionVpnService : VpnService() {
         }
     }
 
+    private fun createVpnBuilder(): Builder {
+        val builder = Builder()
+            .setSession("Supervision")
+            .addAddress(VPN_ADDRESS, 32)
+            .addRoute(DNS_SERVER, 32)
+            .addDnsServer(DNS_SERVER)
+            .addAddress("fd00::2", 128)
+            .addRoute("fd00::1", 128)
+            .addDnsServer("fd00::1")
+            // Also intercept direct queries to common public DNS resolvers
+            .addRoute("8.8.8.8", 32)
+            .addRoute("8.8.4.4", 32)
+            .addRoute("1.1.1.1", 32)
+            .addRoute("1.0.0.1", 32)
+            .addRoute("9.9.9.9", 32)
+            .addRoute("208.67.222.222", 32)
+            .addRoute("208.67.220.220", 32)
+            .setMtu(VPN_MTU)
+            .setBlocking(true)
+
+        // Essential work, notification, system and banking packages bypass VPN completely
+        // Guarantees zero latency impact, zero notification delays (Teams, Outlook, FCM), and full 5G speed
+        val excludedPackages = listOf(
+            "com.microsoft.teams",
+            "com.microsoft.office.outlook",
+            "com.microsoft.windowsintune.companyportal",
+            "com.microsoft.emmx",
+            "com.microsoft.skydrive",
+            "com.microsoft.office.officehubrow",
+            "com.google.android.gms",             // FCM Push Notifications & Play Services
+            "com.google.android.gsf",             // Google Services Framework
+            "cris.org.in.prs.ima",                // IRCTC Rail Connect
+            "org.cris.aikyam",                    // CRIS Aikyam
+            "com.motorola.securevault",
+            "com.android.phone",
+            "com.android.dialer",
+            "com.google.android.dialer",
+            "com.android.messaging",
+            "com.google.android.apps.messaging",
+            "com.android.emergency"
+        )
+
+        for (pkg in excludedPackages) {
+            try {
+                builder.addDisallowedApplication(pkg)
+                Timber.d("Disallowed application from VPN: $pkg")
+            } catch (_: Exception) {}
+        }
+        return builder
+    }
+
     private fun startVpn() {
         if (isRunning) {
             Timber.w("VPN already running")
@@ -108,46 +163,7 @@ class SupervisionVpnService : VpnService() {
         }
 
         try {
-            val builder = Builder()
-                .setSession("Supervision")
-                .addAddress(VPN_ADDRESS, 32)
-                .addRoute(DNS_SERVER, 32)
-                .addDnsServer(DNS_SERVER)
-                .addAddress("fd00::2", 128)
-                .addRoute("fd00::1", 128)
-                .addDnsServer("fd00::1")
-                .setMtu(VPN_MTU)
-                .setBlocking(true)
-
-            // Essential work, notification, system and banking packages bypass VPN completely
-            // Guarantees zero latency impact, zero notification delays (Teams, Outlook, FCM), and full 5G speed
-            val excludedPackages = listOf(
-                "com.microsoft.teams",
-                "com.microsoft.office.outlook",
-                "com.microsoft.windowsintune.companyportal",
-                "com.microsoft.emmx",
-                "com.microsoft.skydrive",
-                "com.microsoft.office.officehubrow",
-                "com.google.android.gms",             // FCM Push Notifications & Play Services
-                "com.google.android.gsf",             // Google Services Framework
-                "cris.org.in.prs.ima",                // IRCTC Rail Connect
-                "org.cris.aikyam",                    // CRIS Aikyam
-                "com.motorola.securevault",
-                "com.android.phone",
-                "com.android.dialer",
-                "com.google.android.dialer",
-                "com.android.messaging",
-                "com.google.android.apps.messaging",
-                "com.android.emergency"
-            )
-
-            for (pkg in excludedPackages) {
-                try {
-                    builder.addDisallowedApplication(pkg)
-                    Timber.d("Disallowed application from VPN: $pkg")
-                } catch (_: Exception) {}
-            }
-
+            val builder = createVpnBuilder()
             vpnInterface = builder.establish()
 
             if (vpnInterface == null) {
@@ -159,6 +175,34 @@ class SupervisionVpnService : VpnService() {
             isRunning = true
             Timber.i("VPN interface established (High-Performance DNS engine with IPv4/IPv6 support)")
 
+            // Register network callback to dynamically track underlying network (WiFi <-> Cellular)
+            try {
+                val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+                if (networkCallback == null && cm != null) {
+                    val callback = object : ConnectivityManager.NetworkCallback() {
+                        override fun onAvailable(network: Network) {
+                            Timber.d("Default network available: $network")
+                            try {
+                                setUnderlyingNetworks(arrayOf(network))
+                            } catch (e: Exception) {
+                                Timber.e(e, "Error updating underlying networks")
+                            }
+                        }
+
+                        override fun onLost(network: Network) {
+                            Timber.d("Default network lost: $network")
+                            try {
+                                setUnderlyingNetworks(null)
+                            } catch (_: Exception) {}
+                        }
+                    }
+                    networkCallback = callback
+                    cm.registerDefaultNetworkCallback(callback)
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to register network callback")
+            }
+
             serviceScope.launch {
                 handleVpnTraffic()
             }
@@ -168,43 +212,89 @@ class SupervisionVpnService : VpnService() {
         }
     }
 
-    private suspend fun handleVpnTraffic() {
-        val vpnFd = vpnInterface ?: return
-        val inputStream = FileInputStream(vpnFd.fileDescriptor)
-        val outputStream = FileOutputStream(vpnFd.fileDescriptor)
-
-        val buffer = ByteArray(VPN_MTU)
+    private fun reconnectVpnInterface() {
+        try {
+            vpnInterface?.close()
+        } catch (_: Exception) {}
+        vpnInterface = null
 
         try {
-            while (isRunning) {
-                val length = inputStream.read(buffer)
-                if (length <= 0) continue
+            val builder = createVpnBuilder()
+            vpnInterface = builder.establish()
+            if (vpnInterface != null) {
+                Timber.i("VPN interface successfully re-established")
+            } else {
+                Timber.e("Failed to re-establish VPN interface")
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Exception re-establishing VPN interface")
+        }
+    }
 
-                val packet = buffer.copyOf(length)
+    private suspend fun handleVpnTraffic() {
+        while (isRunning) {
+            val vpnFd = vpnInterface
+            if (vpnFd == null) {
+                kotlinx.coroutines.delay(500)
+                continue
+            }
 
-                if (isDnsPacket(packet)) {
-                    serviceScope.launch(Dispatchers.IO) {
-                        try {
-                            val response = processDnsPacket(packet)
-                            if (response != null) {
-                                synchronized(outputStream) {
-                                    outputStream.write(response)
-                                    outputStream.flush()
+            var inputStream: FileInputStream? = null
+            var outputStream: FileOutputStream? = null
+
+            try {
+                inputStream = FileInputStream(vpnFd.fileDescriptor)
+                outputStream = FileOutputStream(vpnFd.fileDescriptor)
+                val buffer = ByteArray(VPN_MTU)
+
+                while (isRunning) {
+                    val length = try {
+                        inputStream.read(buffer)
+                    } catch (e: Exception) {
+                        Timber.w("VPN inputStream.read interrupted/closed: ${e.message}")
+                        -1
+                    }
+
+                    if (length < 0) {
+                        // EOF or interface closed — break inner loop to cleanly re-establish
+                        Timber.w("VPN interface reached EOF or was closed (length=$length)")
+                        break
+                    }
+                    if (length == 0) continue
+
+                    val packet = buffer.copyOf(length)
+
+                    if (isDnsPacket(packet)) {
+                        serviceScope.launch(Dispatchers.IO) {
+                            try {
+                                val response = processDnsPacket(packet)
+                                if (response != null) {
+                                    synchronized(outputStream) {
+                                        outputStream.write(response)
+                                        outputStream.flush()
+                                    }
                                 }
+                            } catch (e: Exception) {
+                                Timber.e(e, "Error processing DNS packet")
                             }
-                        } catch (e: Exception) {
-                            Timber.e(e, "Error processing DNS packet")
                         }
                     }
                 }
+            } catch (e: Exception) {
+                if (isRunning) {
+                    Timber.e(e, "VPN traffic handler error")
+                }
+            } finally {
+                try { inputStream?.close() } catch (_: Exception) {}
+                try { outputStream?.close() } catch (_: Exception) {}
             }
-        } catch (e: Exception) {
-            if (isRunning) {
-                Timber.e(e, "VPN traffic handler error")
+
+            // If we are still supposed to be running, re-establish the VPN interface
+            if (isRunning && !isExplicitlyStopped) {
+                Timber.i("Re-establishing VPN interface after disconnection...")
+                kotlinx.coroutines.delay(1000)
+                reconnectVpnInterface()
             }
-        } finally {
-            try { inputStream.close() } catch (_: Exception) {}
-            try { outputStream.close() } catch (_: Exception) {}
         }
     }
 
@@ -581,6 +671,13 @@ class SupervisionVpnService : VpnService() {
     private fun stopVpn() {
         isRunning = false
         try {
+            networkCallback?.let {
+                val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+                cm?.unregisterNetworkCallback(it)
+            }
+        } catch (_: Exception) {}
+        networkCallback = null
+        try {
             vpnInterface?.close()
         } catch (e: Exception) {
             Timber.e(e, "Error closing VPN interface")
@@ -612,33 +709,6 @@ class SupervisionVpnService : VpnService() {
 
     private fun scheduleResurrectionAlarm() {
         WatchdogAlarmReceiver.scheduleNextWatchdog(applicationContext)
-        try {
-            val restartIntent = Intent(applicationContext, SupervisionVpnService::class.java).apply {
-                action = ACTION_START
-            }
-            val pendingIntent = android.app.PendingIntent.getForegroundService(
-                applicationContext,
-                102,
-                restartIntent,
-                android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_ONE_SHOT
-            )
-            val alarmManager = getSystemService(android.content.Context.ALARM_SERVICE) as? android.app.AlarmManager
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                alarmManager?.setAndAllowWhileIdle(
-                    android.app.AlarmManager.RTC_WAKEUP,
-                    System.currentTimeMillis() + 1000L,
-                    pendingIntent
-                )
-            } else {
-                alarmManager?.setExact(
-                    android.app.AlarmManager.RTC_WAKEUP,
-                    System.currentTimeMillis() + 1000L,
-                    pendingIntent
-                )
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to schedule VPN resurrection alarm")
-        }
     }
 
     override fun onDestroy() {

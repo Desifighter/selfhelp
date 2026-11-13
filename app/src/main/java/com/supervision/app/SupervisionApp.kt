@@ -3,6 +3,10 @@ package com.supervision.app
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
@@ -20,11 +24,12 @@ class SupervisionApp : Application() {
         setupTimber()
         createNotificationChannels()
         setupWatchdog()
+        registerScreenStateReceiver()
     }
 
     private fun setupWatchdog() {
         try {
-            // 1. High-frequency AlarmManager watchdog
+            // 1. Periodic AlarmManager watchdog
             WatchdogAlarmReceiver.scheduleNextWatchdog(this)
 
             // 2. Fallback WorkManager periodic worker
@@ -40,6 +45,24 @@ class SupervisionApp : Application() {
             Timber.i("Scheduled SupervisionServiceWatchdog periodic worker & alarm watchdog")
         } catch (e: Exception) {
             Timber.e(e, "Failed to schedule SupervisionServiceWatchdog")
+        }
+    }
+
+    private fun registerScreenStateReceiver() {
+        try {
+            val filter = IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_ON)
+                addAction(Intent.ACTION_USER_PRESENT)
+            }
+            registerReceiver(object : BroadcastReceiver() {
+                override fun onReceive(context: Context?, intent: Intent?) {
+                    if (context != null) {
+                        WatchdogAlarmReceiver.checkAndEnsureServices(context)
+                    }
+                }
+            }, filter)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to register screen state receiver")
         }
     }
 

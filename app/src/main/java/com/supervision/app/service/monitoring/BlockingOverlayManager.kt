@@ -45,9 +45,16 @@ class BlockingOverlayManager @Inject constructor(
     private var currentBlockedPackage: String? = null
 
     private var subtitleTextView: TextView? = null
-    private val lastDismissedTimes = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    private val dismissCooldownUntil = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
-    fun getLastDismissedTime(packageName: String): Long = lastDismissedTimes[packageName] ?: 0L
+    fun markDismissed(packageName: String) {
+        dismissCooldownUntil[packageName] = System.currentTimeMillis() + 1500L
+    }
+
+    fun isDismissCooldownActive(packageName: String): Boolean {
+        val until = dismissCooldownUntil[packageName] ?: return false
+        return System.currentTimeMillis() < until
+    }
 
     fun showOverlay(packageName: String, appName: String, reason: String = "Restricted under active self-control plan") {
         if (!Settings.canDrawOverlays(context)) {
@@ -75,7 +82,6 @@ class BlockingOverlayManager @Inject constructor(
                     WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                         WindowManager.LayoutParams.FLAG_FULLSCREEN or
-                        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                         WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
                     PixelFormat.TRANSLUCENT
                 ).apply {
@@ -224,7 +230,7 @@ class BlockingOverlayManager @Inject constructor(
     private fun handleDismissAndExit() {
         val targetPkg = currentBlockedPackage
         if (!targetPkg.isNullOrBlank()) {
-            lastDismissedTimes[targetPkg] = System.currentTimeMillis()
+            markDismissed(targetPkg)
         }
         dismissOverlay()
 

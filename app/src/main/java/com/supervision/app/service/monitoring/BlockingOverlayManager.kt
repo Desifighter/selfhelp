@@ -47,8 +47,8 @@ class BlockingOverlayManager @Inject constructor(
     private var subtitleTextView: TextView? = null
     private val dismissCooldownUntil = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
-    fun markDismissed(packageName: String) {
-        dismissCooldownUntil[packageName] = System.currentTimeMillis() + 1500L
+    fun markDismissed(packageName: String, cooldownMs: Long = 8000L) {
+        dismissCooldownUntil[packageName] = System.currentTimeMillis() + cooldownMs
     }
 
     fun isDismissCooldownActive(packageName: String): Boolean {
@@ -230,11 +230,19 @@ class BlockingOverlayManager @Inject constructor(
     private fun handleDismissAndExit() {
         val targetPkg = currentBlockedPackage
         if (!targetPkg.isNullOrBlank()) {
-            markDismissed(targetPkg)
+            markDismissed(targetPkg, 8000L)
+            // 1. Immediately kill target package process so Freeform and background tasks are terminated
+            try {
+                val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+                am?.killBackgroundProcesses(targetPkg)
+                Timber.i("Overlay dismissed: killed background process for: $targetPkg")
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to kill process on overlay dismiss")
+            }
         }
         dismissOverlay()
 
-        // 1. Navigate to HOME
+        // 2. Navigate to HOME
         val homeIntent = Intent(Intent.ACTION_MAIN).apply {
             addCategory(Intent.CATEGORY_HOME)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -243,17 +251,6 @@ class BlockingOverlayManager @Inject constructor(
             context.startActivity(homeIntent)
         } catch (e: Exception) {
             Timber.e(e, "Failed to start HOME intent from overlay")
-        }
-
-        // 2. Kill background process of target package
-        if (!targetPkg.isNullOrBlank()) {
-            try {
-                val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
-                am?.killBackgroundProcesses(targetPkg)
-                Timber.i("Overlay dismissed: killed background process for: $targetPkg")
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to kill process on overlay dismiss")
-            }
         }
     }
 

@@ -1,7 +1,9 @@
 package com.supervision.app.presentation.dashboard
 
+import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.HourglassBottom
@@ -164,6 +167,60 @@ fun DashboardScreen(
                                 text = "Motorola battery management may pause background blocking. Tap here to allow Unrestricted background activity.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.9f)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        if (Build.MANUFACTURER.contains("motorola", ignoreCase = true)) {
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            try {
+                                val intent = Intent().apply {
+                                    component = ComponentName(
+                                        "com.motorola.batterycare",
+                                        "com.motorola.batterycare.smartbackground.activity.BackgroundSettingActivity"
+                                    )
+                                }
+                                context.startActivity(intent)
+                            } catch (_: Exception) {
+                                try {
+                                    val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                    context.startActivity(intent)
+                                } catch (_: Exception) {}
+                            }
+                        },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.BatteryChargingFull,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Motorola Background Apps: Always Allow",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Configured in Motorola Battery Care. Tap to review 'Always allow' status.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                             )
                         }
                     }

@@ -175,8 +175,12 @@ class UsageMonitoringService : Service() {
 
         // Add all packages currently in resumed state that are not in dismiss cooldown
         for ((pkg, _) in activeResumedPackages) {
-            if (pkg != packageName && !blockingOverlayManager.isDismissCooldownActive(pkg)) {
-                visiblePackages.add(pkg)
+            if (pkg != packageName) {
+                if (blockingOverlayManager.isDismissCooldownActive(pkg)) {
+                    activeResumedPackages.remove(pkg)
+                } else {
+                    visiblePackages.add(pkg)
+                }
             }
         }
 
@@ -259,7 +263,7 @@ class UsageMonitoringService : Service() {
             val am = getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
             val blockedApps = appRestrictionRepository.getBlockedApps()
             for (blocked in blockedApps) {
-                if (!blocked.isEssential && !visiblePackages.contains(blocked.packageName)) {
+                if (!blocked.isEssential) {
                     am?.killBackgroundProcesses(blocked.packageName)
                 }
             }

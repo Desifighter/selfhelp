@@ -41,6 +41,14 @@ class AppBlocker @Inject constructor(
             blockingOverlayManager.showOverlay(packageName, appName, reason)
         }
 
+        // 2. Kill background process so Freeform and lingering tasks are instantly evicted
+        try {
+            val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
+            am?.killBackgroundProcesses(packageName)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to kill background process for $packageName")
+        }
+
         if (now - last < 2000L) {
             // Debounce rapid re-triggers within 2 seconds
             return
